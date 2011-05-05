@@ -196,6 +196,7 @@ installclean_files := \
 	$(PRODUCT_OUT)/obj/kernelmods \
 	$(PRODUCT_OUT)/System.map \
 	$(PRODUCT_OUT)/kernel \
+	$(PRODUCT_OUT)/droidboot \
 	$(PRODUCT_OUT)/obj/FAKE
 
 # The files/dirs to delete during a dataclean, which removes any files
