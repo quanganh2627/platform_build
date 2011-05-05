@@ -338,6 +338,10 @@ event-log-tags: $(event_log_tags_file)
 ALL_DEFAULT_INSTALLED_MODULES += $(event_log_tags_file)
 
 
+ifeq ($(strip $(TARGET_USE_DROIDBOOT)),true)
+include bootable/droidboot/ramdisk.mk
+endif
+
 # #################################################################
 # Targets for boot/OS images
 # #################################################################
