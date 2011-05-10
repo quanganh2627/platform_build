@@ -1875,12 +1875,35 @@ endif
 # Convert a partition data size (eg, as reported in /proc/mtd) to the
 # size of the image used to flash that partition (which includes a
 # spare area for each page).
-# $(1): the partition data size
+# $(1): the partition data size, supported in the same format as for
+# make_ext4fs, with K, M, or G appended to the size.
+#
+# The computation does:
+# () convert K, M, or G suffixed number to bytes
+# () convert to NAND-pages, rounding up any fractional page
+# () convert NAND-pages to bytes accounting for SPARE bytes in pages.
+# Note that if (and only if) you pass in zero as the parameter, the
+# result is zero.  Should help avoid division-by-zero in the
+# assert-max-file-size function defined below.
 define image-size-from-data-size
-$(strip $(eval _isfds_value := $$(shell echo $$$$(($(1) / $(BOARD_NAND_PAGE_SIZE) * \
-  ($(BOARD_NAND_PAGE_SIZE)+$(BOARD_NAND_SPARE_SIZE))))))\
-$(if $(filter 0, $(_isfds_value)),$(shell echo $$(($(BOARD_NAND_PAGE_SIZE)+$(BOARD_NAND_SPARE_SIZE)))),$(_isfds_value))\
-$(eval _isfds_value :=))
+$(shell echo \
+$$(( \
+	( \
+		$$( \
+			bytes=$(1); \
+			case $${bytes: -1} in \
+				(K) bytes=$$(($${bytes%K} * 1024)) ;; \
+				(M) bytes=$$(($${bytes%M} * 1024 * 1024)) ;; \
+				(G) bytes=$$(($${bytes%G} * 1024 * 1024 * 1024)) ;; \
+			esac; \
+			echo $${bytes} \
+		) \
+	+ $(BOARD_NAND_PAGE_SIZE) - 1 \
+	) \
+	/ $(BOARD_NAND_PAGE_SIZE) * \
+	($(BOARD_NAND_PAGE_SIZE)+$(BOARD_NAND_SPARE_SIZE)) \
+)) \
+)
 endef
 
 # $(1): The file(s) to check (often $@)
