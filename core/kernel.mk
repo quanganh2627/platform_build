@@ -27,13 +27,14 @@ ifneq ($(TARGET_TOOLS_PREFIX),)
 mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
 endif
 
-ifneq ($(wildcard $(TARGET_KERNEL_CONFIG)),)
-KERNEL_CONFIG_FILE := $(TARGET_KERNEL_CONFIG)
-else
+ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)),)
 KERNEL_CONFIG_FILE := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
+else
+KERNEL_CONFIG_FILE := $(TARGET_KERNEL_CONFIG)
 endif
-MOD_ENABLED := $(shell grep ^CONFIG_MODULES=y $(KERNEL_CONFIG_FILE))
-FIRMWARE_ENABLED := $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(KERNEL_CONFIG_FILE))
+
+MOD_ENABLED = $(shell grep ^CONFIG_MODULES=y $(KERNEL_CONFIG_FILE))
+FIRMWARE_ENABLED = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(KERNEL_CONFIG_FILE))
 
 # I understand Android build system discourage to use submake,
 # but I don't want to write a complex Android.mk to build kernel.
