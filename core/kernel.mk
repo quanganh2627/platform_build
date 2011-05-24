@@ -8,67 +8,223 @@
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
 
-ifeq ($(TARGET_PREBUILT_KERNEL),)
+ifneq ($(strip $(TARGET_NO_KERNEL)),true)
+
+# use_prebuilt_kernel is the variable used for determining if we will be using
+# prebuilt kernel components or build kernel from source, in the code that
+# follows below.
+use_prebuilt_kernel :=
+
+# kernel_prebuilt_* variables will hold the full paths to the kernel artifacts,
+# if they exist, otherwise they will have empty values. The exact file name is
+# being determined by keeping the file name base of the corresponding targets,
+# then using the wildcard function to actually see if these files exist in the
+# TARGET_PREBUILT_KERNEL_DIR directory, which is usually set in a
+# BoardConfig.mk file.
+kernel_prebuilt_image  := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNEL_TARGET)))
+kernel_prebuilt_sysmap := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_SYSTEM_MAP)))
+kernel_prebuilt_mods   := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_MODULES_TARGET)))
+kernel_prebuilt_fw     := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNELFW_TARGET)))
+
+# The kernel image and the System.map files are mandatory for considering that
+# we have a full prebuilt kernel. So, both the above set variables are actually
+# pointing to existing files, then we can consider using prebuilt kernels.
+ifneq ($(and $(kernel_prebuilt_image),$(kernel_prebuilt_sysmap)),)
+$(info KERNEL: Kernel prebuilt image and system map are available)
+
+# We have all the ingredients necessary for prebuilt kernels, but we make sure
+# that the user didn't set the BUILD_KERNEL variable, in which case we will be
+# forcing the kernel build from source.
+ifeq ($(BUILD_KERNEL),)
+$(info KERNEL: BUILD_KERNEL is not set, will not force kernel source build)
+
+# Under this condition, we set use_prebuilt_kernel to true, which means that we
+# will be using prebuilt kernels below.
+use_prebuilt_kernel := true
+$(info KERNEL: Will use prebuilt kernel)
+else # BUILD_KERNEL != null
+# This is the case where users force kernel build from source.
+$(info KERNEL: BUILD_KERNEL is set to a non-null value. Will not use prebuilt kernels)
+endif
+else # kernel prebuilt mandatory ingredients are not available
+$(info KERNEL: Kernel prebuilt image and/or system map are not available. Will not use prebuilt kernels)
+endif
+
+ifneq ($(use_prebuilt_kernel),true)
+
+$(info Building kernel from source)
+
+# Boards will typically need to set the following variables
+# TARGET_KERNEL_CONFIG - Name of the base defconfig to use
+# TARGET_KERNEL_CONFIG_OVERRIDES - 0 or more 'override' files to modify the
+#     base defconfig; for enable, special overrides for user builds to disable
+#     debug features, etc.
+# TARGET_KERNEL_SOURCE - Location of kernel source directory relative to the
+#     top level
+# TARGET_KERNEL_EXTRA_CFLAGS - Additional CFLAGS which will be passed to the
+#     kernel 'make' invocation as KCFLAGS
+
 
 ifeq ($(TARGET_ARCH),x86)
 KERNEL_TARGET := bzImage
 TARGET_KERNEL_CONFIG ?= android-x86_defconfig
+ifeq ($(TARGET_KERNEL_ARCH),)
+TARGET_KERNEL_ARCH := i386
+endif
 endif
 ifeq ($(TARGET_ARCH),arm)
 KERNEL_TARGET := zImage
 TARGET_KERNEL_CONFIG ?= goldfish_defconfig
+ifeq ($(TARGET_KERNEL_ARCH),)
+TARGET_KERNEL_ARCH := arm
+endif
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
 
-KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
-mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
+kbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
+
+# Leading "+" gives child Make access to the jobserver.
+# gzip hack necessary to get the kernel to compress the
+# bzImage with minigzip instead of host gzip, so that the
+# newer verion of deflate algorithn inside zlib is used.
+# This is needed by OTA applypatch, which makes much larger
+# binary diffs of compressed data if the deflate versions
+# are out of alignment.
+mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(kbuild_output) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
+ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
 ifneq ($(TARGET_TOOLS_PREFIX),)
+ifneq ($(USE_CCACHE),)
+mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
+else
 mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
 endif
-
-ifneq ($(wildcard $(TARGET_KERNEL_CONFIG)),)
-KERNEL_CONFIG_FILE := $(TARGET_KERNEL_CONFIG)
-else
-KERNEL_CONFIG_FILE := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
 endif
-MOD_ENABLED := $(shell grep ^CONFIG_MODULES=y $(KERNEL_CONFIG_FILE))
-FIRMWARE_ENABLED := $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(KERNEL_CONFIG_FILE))
+endif
 
-# I understand Android build system discourage to use submake,
-# but I don't want to write a complex Android.mk to build kernel.
-# This is the simplest way I can think.
-KERNEL_DOTCONFIG_FILE := $(KBUILD_OUTPUT)/.config
-$(KERNEL_DOTCONFIG_FILE): $(KERNEL_CONFIG_FILE) | $(ACP)
+# If there's a file in the arch-specific configs directory that matches
+# what's in $(TARGET_KERNEL_CONFIG), use that. Otherwise, use $(TARGET_KERNEL_CONFIG)
+# verbatim
+ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)),)
+kernel_config_file := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
+else
+kernel_config_file := $(TARGET_KERNEL_CONFIG)
+endif
+
+# FIXME: doesn't check overrides, only the base configuration file
+kernel_mod_enabled = $(shell grep ^CONFIG_MODULES=y $(kernel_config_file))
+kernel_fw_enabled = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(kernel_config_file))
+
+# The actual .config that is in use during the build is derived from
+# a base $kernel_config_file, plus a a list of config overrides which
+# are processed in order.
+kernel_dotconfig_file := $(kbuild_output)/.config
+$(kernel_dotconfig_file): $(kernel_config_file) $(TARGET_KERNEL_CONFIG_OVERRIDES) | $(ACP)
+	$(hide) mkdir -p $(dir $@)
+	build/tools/build-defconfig.py $^ > $@
+
+built_kernel_target := $(kbuild_output)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
+
+# Declared .PHONY to force a rebuild each time. We can't tell if the kernel
+# sources have changed from this context
+.PHONY : $(INSTALLED_KERNEL_TARGET)
+
+$(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(MINIGZIP) | $(ACP)
+	$(hide) rm -f $(kbuild_output)/.config.old
+	$(mk_kernel) oldnoconfig
+	$(mk_kernel) $(KERNEL_TARGET) $(if $(kernel_mod_enabled),modules)
+	$(hide) $(ACP) -fp $(built_kernel_target) $@
+
+$(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
+	$(hide) $(ACP) $(kbuild_output)/System.map $@
+
+# FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
+# source into an intermediate directory and compile it there, preserving
+# timestamps so code is only rebuilt if it changes.
+# Extra newline intentional to prevent calling foreach from concatenating
+# into a single line
+# FIXME: Need to extend this so that all external modules are not built by
+# default, need to define them each as an Android module and include them as
+# needed in PRODUCT_PACKAGES
+define make-ext-module
+	$(hide) mkdir -p $(kbuild_output)/extmods/$(1)
+	$(hide) $(ACP) -rtf $(1)/* $(kbuild_output)/extmods/$(1)
+	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules
+	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules_install
+
+endef
+
+define make-modules
+	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
+	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(1)))
+	$(hide) rm -f $(1)/lib/modules/*/{build,source}
+	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
+endef
+
+$(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
+	$(hide) rm -rf $(modbuild_output)/lib/modules
+	$(hide) mkdir -p $(modbuild_output)/lib/modules
+	$(if $(kernel_mod_enabled),$(call make-modules,$(modbuild_output)))
+	$(hide) tar -cz -C $(modbuild_output)/lib/ -f $(CURDIR)/$@ modules
+
+$(INSTALLED_KERNELFW_TARGET): $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MODULES_TARGET) $(MINIGZIP)
+	$(hide) rm -rf $(modbuild_output)/lib/firmware
+	$(hide) mkdir -p $(modbuild_output)/lib/firmware
+	$(if $(kernel_fw_enabled),$(mk_kernel) INSTALL_MOD_PATH=$(modbuild_output) firmware_install)
+	$(hide) tar -cz -C $(modbuild_output)/lib/ -f $(CURDIR)/$@ firmware
+
+PREBUILT-PROJECT-linux: \
+		$(INSTALLED_KERNEL_TARGET) \
+		$(INSTALLED_SYSTEM_MAP) \
+		$(INSTALLED_MODULES_TARGET) \
+		$(INSTALLED_KERNELFW_TARGET)
+		$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+		$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+		$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+
+else # use_prebuilt_kernel = true
+
+$(info Using prebuilt kernel components)
+$(INSTALLED_KERNEL_TARGET): $(kernel_prebuilt_image) | $(ACP)
 	$(copy-file-to-new-target)
 
-BUILT_KERNEL_TARGET := $(KBUILD_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
+$(INSTALLED_SYSTEM_MAP): $(kernel_prebuilt_sysmap) | $(ACP)
+	$(copy-file-to-new-target)
 
-.PHONY : $(INSTALLED_KERNEL_TARGET)
-$(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE)
-	$(mk_kernel) oldnoconfig
-	$(mk_kernel) $(KERNEL_TARGET) $(if $(MOD_ENABLED),modules)
-	$(hide) $(ACP) -fp $(BUILT_KERNEL_TARGET) $@
-ifdef TARGET_PREBUILT_MODULES
-	$(hide) $(ACP) -r $(TARGET_PREBUILT_MODULES) $(TARGET_OUT)/lib
-else
-	$(hide) rm -rf $(TARGET_OUT)/lib/modules
-	$(if $(MOD_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install)
-	$(hide) rm -f $(TARGET_OUT)/lib/modules/*/{build,source}
-	$(hide) cd $(TARGET_OUT)/lib/modules && find -type f | xargs ln -t .
+# Test if we have a kernel modules archive in the prebuilts area
+ifneq ($(kernel_prebuilt_mods),)
+$(INSTALLED_MODULES_TARGET): $(kernel_prebuilt_mods) | $(ACP)
+	$(copy-file-to-new-target)
+else # kernel_prebuilt_mods is empty
+# We empty the modules target
+INSTALLED_MODULES_TARGET :=
 endif
-	$(if $(FIRMWARE_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) firmware_install)
 
-installclean: FILES += $(KBUILD_OUTPUT) $(INSTALLED_KERNEL_TARGET)
+# Test if we have a kernel firmware archive in the prebuilts area
+ifneq ($(kernel_prebuilt_fw),)
+$(INSTALLED_KERNELFW_TARGET): $(kernel_prebuilt_fw) | $(ACP)
+	$(copy-file-to-new-target)
+else # kernel_prebuilt_fw is empty
+# We empty the firmware target
+INSTALLED_KERNELFW_TARGET :=
+endif
 
-TARGET_PREBUILT_KERNEL  := $(INSTALLED_KERNEL_TARGET)
+# It makes no sense to use the automatic prebuilts machinery target, if we have
+# used the prebuilt kernel. It would mean re-copying the same files in the
+# upstream repository, from where they came initially. So, we return an error
+# if anyone is trying a "make PREBUILT-*" target.
+PREBUILT-PROJECT-linux:
+	$(error Automatic prebuilts for kernel are available only when building kernel from source)
+
+endif # use_prebuilt_kernel
+
+use_prebuilt_kernel :=
 
 .PHONY: kernel
-kernel: $(TARGET_PREBUILT_KERNEL)
+kernel: $(INSTALLED_KERNEL_TARGET) \
+		$(INSTALLED_SYSTEM_MAP) \
+		$(INSTALLED_MODULES_TARGET) \
+		$(INSTALLED_KERNELFW_TARGET)
 
-else
-
-$(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) | $(ACP)
-	$(copy-file-to-new-target)
-
-endif # TARGET_PREBUILT_KERNEL
+endif # TARGET_NO_KERNEL

@@ -759,7 +759,18 @@ define build-systemimage-target
       $(TARGET_OUT) $(systemimage_intermediates)/system_image_info.txt $(1)
 endef
 
-$(BUILT_SYSTEMIMAGE): $(INSTALLED_KERNEL_TARGET) $(INTERNAL_SYSTEMIMAGE_FILES) $(INTERNAL_USERIMAGES_DEPS)
+$(BUILT_SYSTEMIMAGE): $(INSTALLED_MODULES_TARGET) \
+		      $(INSTALLED_KERNELFW_TARGET) \
+		      $(INTERNAL_SYSTEMIMAGE_FILES) \
+		      $(INTERNAL_USERIMAGES_DEPS) \
+
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(if $(INSTALLED_MODULES_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_MODULES_TARGET))
+	$(hide) chmod -fR g-w $(TARGET_OUT)/lib/modules
+	$(if $(INSTALLED_KERNELFW_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_KERNELFW_TARGET))
+	$(hide) chmod -fR g-w $(TARGET_OUT)/lib/firmware
 	$(call build-systemimage-target,$@)
 
 INSTALLED_SYSTEMIMAGE := $(PRODUCT_OUT)/system.img
@@ -819,7 +830,16 @@ endif
 system_tar := $(PRODUCT_OUT)/system.tar
 INSTALLED_SYSTEMTARBALL_TARGET := $(system_tar).$(SYSTEM_TARBALL_FORMAT)
 $(INSTALLED_SYSTEMTARBALL_TARGET): PRIVATE_SYSTEM_TAR := $(system_tar)
-$(INSTALLED_SYSTEMTARBALL_TARGET): $(FS_GET_STATS) $(INTERNAL_SYSTEMIMAGE_FILES)
+$(INSTALLED_SYSTEMTARBALL_TARGET): $(FS_GET_STATS) \
+		$(INTERNAL_SYSTEMIMAGE_FILES) \
+		$(INSTALLED_MODULES_TARGET) \
+		$(INSTALLED_KERNELFW_TARGET) \
+
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(if $(INSTALLED_MODULES_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_MODULES_TARGET))
+	$(if $(INSTALLED_KERNELFW_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_KERNELFW_TARGET))
 	$(build-systemtarball-target)
 
 .PHONY: systemtarball-nodeps
