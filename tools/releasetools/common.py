@@ -131,8 +131,17 @@ def LoadInfoDict(zip):
     pass
 
   def makeint(key):
+    multable = {
+       "K" : 1024,
+       "M" : 1024 * 1024,
+       "G" : 1024 * 1024 * 1024
+       }
     if key in d:
-      d[key] = int(d[key], 0)
+      v = d[key]
+      if v[-1] in multable:
+        d[key] = int(v[:-1]) * multable[v[-1]]
+      else:
+        d[key] = int(v)
 
   makeint("recovery_api_version")
   makeint("blocksize")
