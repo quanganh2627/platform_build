@@ -1,9 +1,11 @@
 # This file contains feature macro definitions specific to the
-# 'x86-atom' arch variant. This is an extension of the 'x86' base variant
-# that adds Atom-specific features.
+# silvermont arch variant.
 #
-# See build/core/combo/arch/x86/x86.mk for differences.
+# See build/core/combo/arch/x86/x86-atom.mk for differences.
 #
+# NOTE: This is currently a copy of the x86-atom.mk and has not
+# yet been populated with silvermont-specific compiler directives.
+
 ARCH_X86_HAVE_MMX   := true
 ARCH_X86_HAVE_SSE   := true
 ARCH_X86_HAVE_SSE2  := true
