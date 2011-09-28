@@ -144,6 +144,8 @@ function setpaths()
                  ARM_EABI_TOOLCHAIN_PATH=":$gccprebuiltdir/$toolchaindir"
             fi
             ;;
+        x86) toolchaindir=x86/i686-linux-android-4.6/bin
+            ;;
         mips) toolchaindir=mips/mips-eabi-4.4.3/bin
             ;;
         *)
@@ -152,9 +154,10 @@ function setpaths()
     esac
 
     export ANDROID_TOOLCHAIN=$ANDROID_EABI_TOOLCHAIN
+    export X86_TOOLCHAIN=$prebuiltdir/toolchain/i686-linux-android-4.6/bin
     export ANDROID_QTOOLS=$T/development/emulator/qtools
     export ANDROID_DEV_SCRIPTS=$T/development/scripts
-    export ANDROID_BUILD_PATHS=$(get_build_var ANDROID_BUILD_PATHS):$ANDROID_QTOOLS:$ANDROID_TOOLCHAIN$ARM_EABI_TOOLCHAIN_PATH$CODE_REVIEWS:$ANDROID_DEV_SCRIPTS:
+    export ANDROID_BUILD_PATHS=$(get_build_var ANDROID_BUILD_PATHS):$ANDROID_QTOOLS:$ANDROID_TOOLCHAIN$ARM_EABI_TOOLCHAIN_PATH:$X86_TOOLCHAIN:$CODE_REVIEWS:$ANDROID_DEV_SCRIPTS:
     export PATH=$ANDROID_BUILD_PATHS$PATH
 
     unset ANDROID_JAVA_TOOLCHAIN
