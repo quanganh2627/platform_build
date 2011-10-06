@@ -750,6 +750,10 @@ function gdbclient()
        else
            EXE="app_process"
        fi
+       if [ ! -f "$OUT_EXE_SYMBOLS/$EXE" ]; then
+           echo "Unable to find executable: $OUT_EXE_SYMBOLS/$EXE"
+           return 1
+       fi
 
        local PORT="$2"
        if [ "$PORT" ] ; then
