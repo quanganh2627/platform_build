@@ -485,9 +485,9 @@ endif # ONE_SHOT_MAKEFILE
 # Now with all Android.mks loaded we can do post cleaning steps.
 include $(BUILD_SYSTEM)/post_clean.mk
 
-ifeq ($(stash_product_vars),true)
-  $(call assert-product-vars, __STASHED)
-endif
+#ifeq ($(stash_product_vars),true)
+#  $(call assert-product-vars, __STASHED)
+#endif
 
 include $(BUILD_SYSTEM)/legacy_prebuilts.mk
 ifneq ($(filter-out $(GRANDFATHERED_ALL_PREBUILT),$(strip $(notdir $(ALL_PREBUILT)))),)
@@ -502,7 +502,7 @@ ifneq ($(filter-out $(GRANDFATHERED_ALL_PREBUILT),$(strip $(notdir $(ALL_PREBUIL
   $(warning *)
   $(foreach bad_prebuilt,$(filter-out $(GRANDFATHERED_ALL_PREBUILT),$(strip $(notdir $(ALL_PREBUILT)))),$(warning * unexpected $(bad_prebuilt) in ALL_PREBUILT))
   $(warning *)
-  $(error ALL_PREBUILT contains unexpected files)
+#  $(error ALL_PREBUILT contains unexpected files)
 endif
 
 # -------------------------------------------------------------------
