@@ -24,7 +24,12 @@ TARGET_KERNEL_SOURCE ?= kernel
 KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
 ifneq ($(TARGET_TOOLS_PREFIX),)
+ifneq ($(USE_CCACHE),)
+ccache := prebuilt/$(HOST_PREBUILT_TAG)/ccache/ccache
+mk_kernel += CROSS_COMPILE="$(CURDIR)/$(ccache) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
+else
 mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
+endif
 endif
 
 ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)),)
