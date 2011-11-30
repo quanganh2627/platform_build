@@ -439,6 +439,11 @@ endif	# !BUILD_TINY_ANDROID
 
 endif	# !SDK_ONLY
 
+# Some products may require additional directories than listed above. For
+# example, a product that uses BUILD_TINY_ANDROID may need additional hardware
+# and C libraries.
+subdirs += $(PRODUCTS.$(INTERNAL_PRODUCT).PRODUCT_CUSTOM_SUBDIRS)
+
 # Before we go and include all of the module makefiles, stash away
 # the PRODUCT_* values so that later we can verify they are not modified.
 stash_product_vars:=true
