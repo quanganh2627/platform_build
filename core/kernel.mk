@@ -22,6 +22,8 @@ endif
 TARGET_KERNEL_SOURCE ?= kernel
 
 KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+
+# Leading "+" somehow causes sub-make to inherit -j passed to parent Make
 mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
@@ -50,7 +52,20 @@ $(KERNEL_DOTCONFIG_FILE): $(KERNEL_CONFIG_FILE) | $(ACP)
 
 BUILT_KERNEL_TARGET := $(KBUILD_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
 
+# Declared .PHONY to force a rebuild each time. We can't tell if the kernel
+# sources have changed from this context
 .PHONY : $(INSTALLED_KERNEL_TARGET)
+
+# Extra newline intentional to prevent calling foreach from concatenating
+# into a single line delimited by '+'
+define make-module-item
+	mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
+	$(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install
+
+endef
+
 $(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE)
 	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(MOD_ENABLED),modules)
@@ -60,6 +75,7 @@ ifdef TARGET_PREBUILT_MODULES
 else
 	$(hide) rm -rf $(TARGET_OUT)/lib/modules
 	$(if $(MOD_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install)
+	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-module-item,$(item)))
 	$(hide) rm -f $(TARGET_OUT)/lib/modules/*/{build,source}
 	$(hide) cd $(TARGET_OUT)/lib/modules && find -type f | xargs ln -t .
 endif
