@@ -36,8 +36,8 @@ include $(TARGET_ARCH_SPECIFIC_MAKEFILE)
 
 # You can set TARGET_TOOLS_PREFIX to get gcc from somewhere else
 ifeq ($(strip $(TARGET_TOOLS_PREFIX)),)
-TARGET_TOOLCHAIN_ROOT := prebuilts/gcc/$(HOST_PREBUILT_TAG)/x86/i686-android-linux-4.4.3
-TARGET_TOOLS_PREFIX := $(TARGET_TOOLCHAIN_ROOT)/bin/i686-android-linux-
+TARGET_TOOLCHAIN_ROOT := prebuilts/gcc/$(HOST_PREBUILT_TAG)/x86/i686-linux-android-4.6
+TARGET_TOOLS_PREFIX := $(TARGET_TOOLCHAIN_ROOT)/bin/i686-linux-android-
 endif
 
 TARGET_CC := $(TARGET_TOOLS_PREFIX)gcc$(HOST_EXECUTABLE_SUFFIX)
@@ -100,6 +100,7 @@ TARGET_GLOBAL_CFLAGS += \
 TARGET_GLOBAL_CPPFLAGS += \
 			-fno-use-cxa-atexit
 
+<<<<<<< HEAD
 # XXX: Our toolchain is normally configured to always set these flags by default
 # however, there have been reports that this is sometimes not the case. So make
 # them explicit here unless we have the time to carefully check it
@@ -113,6 +114,12 @@ TARGET_GLOBAL_CFLAGS += -mstackrealign -msse3 -mfpmath=sse
 #
 ifeq ($(ARCH_X86_HAVE_SSE2),true)
 TARGET_GLOBAL_CFLAGS += -DUSE_SSE2
+=======
+ifeq ($(TARGET_ARCH_VARIANT),x86-atom)
+    TARGET_GLOBAL_CFLAGS += -march=atom -mstackrealign -DUSE_SSSE3 -DUSE_SSE2 -mfpmath=sse
+else
+    TARGET_GLOBAL_CFLAGS += -march=corei7 -mtune=corei7 -msse -msse2 -msse3 -mfpmath=sse -mstackrealign
+>>>>>>> 75361fb... Changed to use 4.6 toolchain.
 endif
 
 ifeq ($(ARCH_X86_HAVE_SSSE3),true)   # yes, really SSSE3, not SSE3!
