@@ -1113,4 +1113,16 @@ do
 done
 unset f
 
+# Only check compiler binary size, don't look at modification time
+export CCACHE_COMPILERCHECK="stat -L --printf=%s %compiler%"
+
+# See man page, optimizations to get more cache hits
+# implies that __DATE__ and __TIME__ are not critical for functionality
+export CCACHE_SLOPPINESS=time_macros,include_file_mtime,file_macro
+
+# Turn all preprocessor absolute paths into relative paths
+# We don't really use system headers much so the rootdir is
+# fine
+export CCACHE_BASEDIR=/
+
 addcompletions
