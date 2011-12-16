@@ -35,8 +35,7 @@ KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
-ccache := prebuilt/$(HOST_PREBUILT_TAG)/ccache/ccache
-mk_kernel += CROSS_COMPILE="$(CURDIR)/$(ccache) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
+mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
 else
 mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
 endif
