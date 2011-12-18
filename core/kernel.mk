@@ -8,7 +8,9 @@
 #      http://www.apache.org/licenses/LICENSE-2.0
 #
 
-ifeq ($(TARGET_PREBUILT_KERNEL),)
+ifneq ($(strip $(TARGET_NO_KERNEL)),true)
+
+ifeq ($(TARGET_PREBUILT_KERNEL_DIR),)
 
 ifeq ($(TARGET_ARCH),x86)
 KERNEL_TARGET := bzImage
@@ -56,41 +58,82 @@ BUILT_KERNEL_TARGET := $(KBUILD_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET
 # sources have changed from this context
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
-# Extra newline intentional to prevent calling foreach from concatenating
-# into a single line delimited by '+'
-define make-module-item
-	mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
-	$(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install
-
-endef
-
-$(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE)
+$(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE) $(MINIGZIP) | $(ACP)
 	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(MOD_ENABLED),modules)
 	$(hide) $(ACP) -fp $(BUILT_KERNEL_TARGET) $@
-ifdef TARGET_PREBUILT_MODULES
-	$(hide) $(ACP) -r $(TARGET_PREBUILT_MODULES) $(TARGET_OUT)/lib
-else
-	$(hide) rm -rf $(TARGET_OUT)/lib/modules
-	$(if $(MOD_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install)
-	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-module-item,$(item)))
+
+$(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
+	$(hide) $(ACP) $(KBUILD_OUTPUT)/System.map $@
+
+# FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
+# source into an intermediate directory and compile it there, preserving
+# timestamps so code is only rebuilt if it changes.
+# Extra newline intentional to prevent calling foreach from concatenating
+# into a single line
+define make-ext-module
+	$(hide) mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
+	$(hide) $(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(2) modules
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(2) modules_install
+
+endef
+
+define make-modules
+	$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install
+	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(TARGET_OUT)))
 	$(hide) rm -f $(TARGET_OUT)/lib/modules/*/{build,source}
-	$(hide) cd $(TARGET_OUT)/lib/modules && find -type f | xargs ln -t .
-endif
+	$(hide) cd $(TARGET_OUT)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
+endef
+
+# Side effect: Modules placed in /system/lib/modules
+$(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) mkdir -p $(TARGET_OUT)/lib/modules
+	$(if $(MOD_ENABLED),$(call make-modules))
+	$(hide) tar -cz -C $(TARGET_OUT)/lib/ -f $(CURDIR)/$@ modules
+
+# Side effect: Firmware placed in /system/lib/firmware
+$(INSTALLED_KERNELFW_TARGET): $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MODULES_TARGET) $(MINIGZIP)
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/firmware
 	$(if $(FIRMWARE_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) firmware_install)
+	$(hide) tar -cz -C $(TARGET_OUT)/lib/ -f $(CURDIR)/$@ firmware
 
-installclean: FILES += $(KBUILD_OUTPUT) $(INSTALLED_KERNEL_TARGET)
+else # TARGET_PREBUILT_KERNEL_DIR
 
-TARGET_PREBUILT_KERNEL  := $(INSTALLED_KERNEL_TARGET)
-
-.PHONY: kernel
-kernel: $(TARGET_PREBUILT_KERNEL)
-
-else
-
-$(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL) | $(ACP)
+$(INSTALLED_KERNEL_TARGET): $(TARGET_PREBUILT_KERNEL_DIR)/kernel | $(ACP)
 	$(copy-file-to-new-target)
 
-endif # TARGET_PREBUILT_KERNEL
+$(INSTALLED_SYSTEM_MAP): $(TARGET_PREBUILT_KERNEL_DIR)/System.map | $(ACP)
+	$(copy-file-to-new-target)
+
+# Side effect: Modules placed in /system/lib/modules
+$(INSTALLED_MODULES_TARGET): $(TARGET_PREBUILT_KERNEL_DIR)/kernelmod.tar.gz | $(ACP)
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $<
+	$(copy-file-to-new-target)
+
+# Side effect: Firmware placed in /system/lib/firmware
+$(INSTALLED_KERNELFW_TARGET): $(TARGET_PREBUILT_KERNEL_DIR)/kernelfw.tar.gz | $(ACP)
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $<
+	$(copy-file-to-new-target)
+
+endif # TARGET_PREBUILT_KERNEL_DIR
+
+.PHONY: kernel
+kernel: $(INSTALLED_KERNEL_TARGET) \
+		$(INSTALLED_SYSTEM_MAP) \
+		$(INSTALLED_MODULES_TARGET) \
+		$(INSTALLED_KERNELFW_TARGET)
+
+# FIXME THIS DOESN'T WORK
+installclean: FILES += $(INSTALLED_KERNEL_TARGET) \
+		$(INSTALLED_SYSTEM_MAP) \
+		$(INSTALLED_MODULES_TARGET) \
+		$(INSTALLED_KERNELFW_TARGET)
+
+endif # TARGET_NO_KERNEL
