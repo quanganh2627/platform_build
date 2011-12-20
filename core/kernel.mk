@@ -25,8 +25,14 @@ TARGET_KERNEL_SOURCE ?= kernel
 
 KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 
-# Leading "+" somehow causes sub-make to inherit -j passed to parent Make
-mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
+# Leading "+" gives child Make access to the jobserver.
+# gzip hack necessary to get the kernel to compress the
+# bzImage with minigzip instead of host gzip, so that the
+# newer verion of deflate algorithn inside zlib is used.
+# This is needed by OTA applypatch, which makes much larger
+# binary diffs of compressed data if the deflate versions
+# are out of alignment.
+mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
 ccache := prebuilt/$(HOST_PREBUILT_TAG)/ccache/ccache
