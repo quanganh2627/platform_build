@@ -22,3 +22,4 @@ PRODUCT_PACKAGES := \
     rild
 
 PRODUCT_COPY_FILES := \
+	system/bluetooth/data/main.conf:system/etc/bluetooth/main.conf
