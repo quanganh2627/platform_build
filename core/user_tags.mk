@@ -395,7 +395,7 @@ GRANDFATHERED_USER_MODULES += \
 	mke2fs \
 	mke2fs_host \
 	mksdcard \
-	mksnapshot \
+	mksnapshot-$(TARGET_ARCH) \
 	mkstubs \
 	mkuserimg.sh \
 	mkyaffs2image \
