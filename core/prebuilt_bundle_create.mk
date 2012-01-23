@@ -52,23 +52,24 @@ endef
 
 #
 # translate ABS module data into a prebuilt bundle.
-# $(1): pathway to the projects out to base our work in
-# $(2): module to translate.
+# $(1): pathway to the binary base
+# $(2): pathway to the headers base
+# $(3): module to translate.
 #
 define install_prebuilt
-  $(eval prebuilt_out := $(1)/$(CUSTOM_BOARD)/$(2))
-  $(eval prebuilt_headers_out := $(1)/include/$(CUSTOM_BOARD)/$(PREBUILT-HEADERS-TO-$(2)))
+  $(eval prebuilt_out := $(1)/$(CUSTOM_BOARD)/$(3))
+  $(eval prebuilt_headers_out := $(2)/$(CUSTOM_BOARD)/$(PREBUILT-HEADERS-TO-$(3)))
   $(shell mkdir -p $(prebuilt_out))
-  $(if $(word 1,$(PREBUILT-HEADERS-$(2))),
+  $(if $(word 1,$(PREBUILT-HEADERS-$(3))),
     $(shell mkdir -p $(prebuilt_headers_out))
   )
-  $(info creating prebuilt: $(2))
-  $(call _write_metadata,$(ALL_MODULES.$(2).CLASS),$(prebuilt_out)/class)
-  $(call _write_metadata,$(ALL_MODULES.$(2).TAGS),$(prebuilt_out)/tags)
-  $(call _write_metadata,$(ALL_MODULES.$(2).REQUIRED),$(prebuilt_out)/required)
-  $(eval files = $(call module-installed-files,$(2)))
+  $(info creating prebuilt: $(3))
+  $(call _write_metadata,$(ALL_MODULES.$(3).CLASS),$(prebuilt_out)/class)
+  $(call _write_metadata,$(ALL_MODULES.$(3).TAGS),$(prebuilt_out)/tags)
+  $(call _write_metadata,$(ALL_MODULES.$(3).REQUIRED),$(prebuilt_out)/required)
+  $(eval files = $(call module-installed-files,$(3)))
   $(if $(word 2,$(files)), \
-    $(error installing $(2), multiple files encountered- we cannot handle that) \
+    $(error installing $(3), multiple files encountered- we cannot handle that) \
   )
 
   $(eval suf := $(suffix $(files)))
@@ -76,10 +77,10 @@ define install_prebuilt
   $(foreach x,$(files),\
     $(call transfer_content,$(x),$(prebuilt_out)/payload$(suf)) \
   )
-  $(foreach x,$(PREBUILT-HEADERS-$(2)),\
-    $(call transfer_content,$(PREBUILT-HEADERS-FROM-$(2))/$(x),$(prebuilt_headers_out)) \
+  $(foreach x,$(PREBUILT-HEADERS-$(3)),\
+    $(call transfer_content,$(PREBUILT-HEADERS-FROM-$(3))/$(x),$(prebuilt_headers_out)) \
   )
-	$(info Headers list for $(2) from $(PREBUILT-HEADERS-FROM-$(2)): $(PREBUILT-HEADERS-$(2)))
+  $(info Headers list for $(3) from $(PREBUILT-HEADERS-FROM-$(3)): $(PREBUILT-HEADERS-$(3)))
 endef
 
 #
@@ -96,37 +97,46 @@ endef
 #
 # create a module bundle
 # $(1): directory to create the prebuilt projects bundles in.
-# $(2): project/grouping for the module bundling.
-# $(3): module to translate
+# $(2): directory to create the prebuilt headers bundles in.
+# $(3): project/grouping for the module bundling.
+# $(4): module to translate
 #
 define prebuilt_bundle_create_boilerplate
-  $(eval PREBUILT-HEADERS-FROM-$(3) := $(LOCAL_PATH))
-  $(eval PREBUILT-HEADERS-TO-$(3) := $(LOCAL_COPY_HEADERS_TO))
-  $(eval PREBUILT-HEADERS-$(3) := $(LOCAL_COPY_HEADERS))
-  $(eval .PHONY: PREBUILT-$(3))
-  $(eval PREBUILT-$(3): $(1)/Android.mk $(3) ; $$(call install_prebuilt,$(1),$(3)))
-  $(eval PREBUILT-PROJECT-$(2): PREBUILT-$(3))
+  $(eval PREBUILT-HEADERS-FROM-$(4) := $(LOCAL_PATH))
+  $(eval PREBUILT-HEADERS-TO-$(4) := $(LOCAL_COPY_HEADERS_TO))
+  $(eval PREBUILT-HEADERS-$(4) := $(LOCAL_COPY_HEADERS))
+  $(eval .PHONY: PREBUILT-$(4))
+  $(eval PREBUILT-$(4): $(1)/Android.mk $(4) ; $$(call install_prebuilt,$(1),$(2),$(4)))
+  $(eval PREBUILT-PROJECT-$(3): PREBUILT-$(4))
 endef
 endif
 
 prebuilt_base := $(PREBUILT_OUT_DIR)/$(PREBUILT_PROJECT)
 
+prebuilt_bin := $(prebuilt_base)/proprietary
 ifneq ($(PREBUILT_INSTALL_DIR),)
-prebuilt_base := $(prebuilt_base)/$(PREBUILT_INSTALL_DIR)
+prebuilt_bin := $(prebuilt_base)/$(PREBUILT_INSTALL_DIR)
 endif
 
-$(prebuilt_base)/Android.mk:
+prebuilt_hdr := $(prebuilt_base)/include
+ifneq ($(PREBUILT_INSTALL_HEADERS_DIR),)
+prebuilt_hdr := $(prebuilt_base)/$(PREBUILT_INSTALL_HEADERS_DIR)
+endif
+
+$(prebuilt_bin)/Android.mk:
 	$(call install_prebuilt_project,$@)
 
 .PHONY: PREBUILT-PROJECT-$(PREBUILT_PROJECT)
 
-PREBUILT-PROJECT-$(PREBUILT_PROJECT): $(prebuilt_base)/Android.mk
+PREBUILT-PROJECT-$(PREBUILT_PROJECT): $(prebuilt_bin)/Android.mk
 
 $(foreach x,$(PREBUILT_MODULES), \
-  $(eval $(call prebuilt_bundle_create_boilerplate,$(prebuilt_base),$(PREBUILT_PROJECT),$(x))) \
+  $(eval $(call prebuilt_bundle_create_boilerplate,$(prebuilt_bin),$(prebuilt_hdr),$(PREBUILT_PROJECT),$(x))) \
 )
 
 prebuilt_base :=
+prebuilt_bin :=
+prebuilt_hdr :=
 PREBUILT_MODULES :=
 PREBUILT_PROJECT :=
 PREBUILT_INSTALL_DIR :=
