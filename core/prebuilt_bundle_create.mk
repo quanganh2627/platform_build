@@ -58,7 +58,10 @@ endef
 define install_prebuilt
   $(eval prebuilt_out := $(1)/$(CUSTOM_BOARD)/$(2))
   $(eval prebuilt_headers_out := $(1)/include/$(CUSTOM_BOARD)/$(PREBUILT-HEADERS-TO-$(2)))
-  $(shell mkdir -p $(prebuilt_out) $(prebuilt_headers_out))
+  $(shell mkdir -p $(prebuilt_out))
+  $(if $(word 1,$(PREBUILT-HEADERS-$(2))),
+    $(shell mkdir -p $(prebuilt_headers_out))
+  )
   $(info creating prebuilt: $(2))
   $(call _write_metadata,$(ALL_MODULES.$(2).CLASS),$(prebuilt_out)/class)
   $(call _write_metadata,$(ALL_MODULES.$(2).TAGS),$(prebuilt_out)/tags)
