@@ -22,6 +22,8 @@ TARGET_KERNEL_CONFIG ?= goldfish_defconfig
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
+TARGET_KERNEL_EXTRA_CFLAGS = -fno-pic
+
 
 KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 
@@ -32,7 +34,7 @@ KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 # This is needed by OTA applypatch, which makes much larger
 # binary diffs of compressed data if the deflate versions
 # are out of alignment.
-mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1)
+mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS=$(TARGET_KERNEL_EXTRA_CFLAGS)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
 mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
