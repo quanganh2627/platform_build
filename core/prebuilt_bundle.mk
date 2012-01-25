@@ -42,7 +42,9 @@ define auto-prebuilt-bundle-boilerplate
     $(module_tags), \
     $(path_override), \
     $(uninstallable), \
-    $(stem) \
+    $(stem), \
+    , \
+    $(PREBUILT.$(2).LOCAL_PATH) \
   )
 endef
 
