@@ -66,6 +66,7 @@ BUILT_KERNEL_TARGET := $(KBUILD_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
 $(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE) $(MINIGZIP) | $(ACP)
+	$(hide) rm -f $(KBUILD_OUTPUT)/.config.old
 	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(MOD_ENABLED),modules)
 	$(hide) $(ACP) -fp $(BUILT_KERNEL_TARGET) $@
