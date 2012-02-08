@@ -44,7 +44,8 @@ define auto-prebuilt-bundle-boilerplate
     $(uninstallable), \
     $(stem), \
     , \
-    $(PREBUILT.$(2).LOCAL_PATH) \
+    $(PREBUILT.$(2).LOCAL_PATH), \
+    $(PREBUILT.$(2).LOCAL_CERTIFICATE) \
   )
 endef
 
