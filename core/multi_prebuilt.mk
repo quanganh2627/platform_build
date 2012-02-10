@@ -68,7 +68,10 @@ $(foreach t,$(1), \
    , \
     $(eval LOCAL_BUILT_MODULE_STEM := $(notdir $(LOCAL_SRC_FILES))) \
    ) \
-  $(eval LOCAL_MODULE_SUFFIX := $(suffix $(LOCAL_SRC_FILES))) \
+  $(if $(strip $(filter ETC,$(module_class))), \
+    , \
+    $(eval LOCAL_MODULE_SUFFIX := $(suffix $(LOCAL_SRC_FILES))) \
+   ) \
   $(if $(filter user,$(TARGET_BUILD_VARIANT)), \
     $(eval LOCAL_STRIP_MODULE := $(8))) \
   $(if $(9), \
