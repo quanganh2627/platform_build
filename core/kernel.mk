@@ -197,7 +197,7 @@ endif
 # used the prebuilt kernel. It would mean re-copying the same files in the
 # upstream repository, from where they came initially. So, we return an error
 # if anyone is trying a "make PREBUILT-*" target.
-PREBUILT-PROJECT-kernel:
+PREBUILT-PROJECT-linux:
 	$(error Automatic prebuilts for kernel are available only when building kernel from source)
 
 endif # use_prebuilt_kernel
