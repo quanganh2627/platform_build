@@ -154,9 +154,9 @@ PREBUILT-PROJECT-linux: \
 		$(INSTALLED_SYSTEM_MAP) \
 		$(INSTALLED_MODULES_TARGET) \
 		$(INSTALLED_KERNELFW_TARGET)
-		$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(CUSTOM_BOARD)
-		$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(CUSTOM_BOARD)
-		$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(CUSTOM_BOARD)
+		$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+		$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+		$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
 
 else # use_prebuilt_kernel = true
 
