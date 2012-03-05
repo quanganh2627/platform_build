@@ -54,18 +54,18 @@ endif
 ifeq ($(BUNDLE_TARGETS),)
   BUNDLE_TARGETS := $(shell find $(LOCAL_PATH)/ -maxdepth 1 -mindepth 1 -type d -exec basename {} \;)
 endif
-ifneq ($(CUSTOM_BOARD),)
+ifneq ($(TARGET_BOARD_PLATFORM),)
   $(foreach t,$(BUNDLE_TARGETS), \
     $(eval $(call auto-prebuilt-bundle-boilerplate,$(LOCAL_PATH),$(t))) \
   )
 else
-  $(warning ** Prebuilt machinery relies on CUSTOM_BOARD being non-null)
+  $(warning ** Prebuilt machinery relies on TARGET_BOARD_PLATFORM being non-null)
   $(warning *  Since its value is null, will disable prebuilts installation for:)
   $(warning *  module(s): $(BUNDLE_TARGETS))
   $(warning *  path: $(LOCAL_PATH))
   $(warning * )
   $(warning *  A quick fix might be enclosing the parent Android.mk inclusion between)
-  $(warning *   ifneq ($$(CUSTOM_BOARD),))
+  $(warning *   ifneq ($$(TARGET_BOARD_PLATFORM),))
   $(warning *   ...)
   $(warning *   endif)
   $(warning ** )
