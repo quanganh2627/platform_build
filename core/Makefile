@@ -1018,6 +1018,8 @@ OTATOOLS := $(DISTTOOLS) \
 .PHONY: otatools
 otatools: $(OTATOOLS)
 
+ifeq ($(CUSTOM_OTA_MAKEFILE_RULES),)
+
 # -----------------------------------------------------------------
 # A zip of the directories that map to the target filesystem.
 # This zip can be used to create an OTA package or filesystem image
@@ -1225,6 +1227,7 @@ endif    # recovery_fstab is defined
 endif    # TARGET_NO_KERNEL != true
 endif    # TARGET_DEVICE != generic*
 endif    # TARGET_PRODUCT != sdk
+endif    # CUSTOM_OTA_MAKEFILE_RULES not defined
 
 # -----------------------------------------------------------------
 # A zip of the tests that are built when running "make tests".
