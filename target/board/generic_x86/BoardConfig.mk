@@ -33,3 +33,6 @@ BUILD_EMULATOR_OPENGL := true
 # Build and enable the OpenGL ES View renderer. When running on the emulator,
 # the GLES renderer disables itself if host GL acceleration isn't available.
 USE_OPENGL_RENDERER := true
+
+# For <ro.board.platform>
+TARGET_BOARD_PLATFORM := full_x86
