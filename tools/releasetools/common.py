@@ -179,7 +179,7 @@ def LoadRecoveryFSTab(zip):
     p.length = 0
     options = None
     if len(pieces) >= 4:
-      if pieces[3].startswith("/"):
+      if pieces[3].startswith("/") or pieces[3].startswith("$"):
         p.device2 = pieces[3]
         if len(pieces) >= 5:
           options = pieces[4]
