@@ -86,7 +86,6 @@ TARGET_GLOBAL_CFLAGS += \
 			-Werror=format-security \
 			-Wstrict-aliasing=2 \
 			-fPIC -fPIE \
-			-ffunction-sections \
 			-finline-functions \
 			-finline-limit=300 \
 			-fno-inline-functions-called-once \
