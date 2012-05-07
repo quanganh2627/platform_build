@@ -101,6 +101,7 @@ TARGET_GLOBAL_CFLAGS += \
 			-fstrict-aliasing \
 			-funswitch-loops \
 			-funwind-tables \
+			-fno-omit-frame-pointer \
 			-fstack-protector
 
 android_config_h := $(call select-android-config-h,target_linux-x86)
