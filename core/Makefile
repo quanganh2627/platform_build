@@ -762,12 +762,16 @@ define build-systemimage-target
       $(TARGET_OUT) $(systemimage_intermediates)/system_image_info.txt $(1)
 endef
 
-$(BUILT_SYSTEMIMAGE): $(INSTALLED_KERNEL_TARGET) \
-		      $(INSTALLED_MODULES_TARGET) \
+$(BUILT_SYSTEMIMAGE): $(INSTALLED_MODULES_TARGET) \
 		      $(INSTALLED_KERNELFW_TARGET) \
 		      $(INTERNAL_SYSTEMIMAGE_FILES) \
 		      $(INTERNAL_USERIMAGES_DEPS) \
 
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(if $(INSTALLED_MODULES_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_MODULES_TARGET))
+	$(if $(INSTALLED_KERNELFW_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_KERNELFW_TARGET))
 	$(call build-systemimage-target,$@)
 
 INSTALLED_SYSTEMIMAGE := $(PRODUCT_OUT)/system.img
@@ -832,6 +836,11 @@ $(INSTALLED_SYSTEMTARBALL_TARGET): $(FS_GET_STATS) \
 		$(INSTALLED_MODULES_TARGET) \
 		$(INSTALLED_KERNELFW_TARGET) \
 
+	$(hide) rm -rf $(TARGET_OUT)/lib/modules
+	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
+	$(hide) mkdir -p $(TARGET_OUT)/lib/
+	$(if $(INSTALLED_MODULES_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_MODULES_TARGET))
+	$(if $(INSTALLED_KERNELFW_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_KERNELFW_TARGET))
 	$(build-systemtarball-target)
 
 .PHONY: systemtarball-nodeps

@@ -67,6 +67,7 @@ TARGET_KERNEL_EXTRA_CFLAGS = -fno-pic
 
 
 KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+MODBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 
 # Leading "+" gives child Make access to the jobserver.
 # gzip hack necessary to get the kernel to compress the
@@ -120,6 +121,9 @@ $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
 # timestamps so code is only rebuilt if it changes.
 # Extra newline intentional to prevent calling foreach from concatenating
 # into a single line
+# FIXME: Need to extend this so that all external modules are not built by
+# default, need to define them each as an Android module and include them as
+# needed in PRODUCT_PACKAGES
 define make-ext-module
 	$(hide) mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
 	$(hide) $(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
@@ -129,25 +133,23 @@ define make-ext-module
 endef
 
 define make-modules
-	$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) modules_install
-	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(TARGET_OUT)))
-	$(hide) rm -f $(TARGET_OUT)/lib/modules/*/{build,source}
-	$(hide) cd $(TARGET_OUT)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
+	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
+	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(1)))
+	$(hide) rm -f $(1)/lib/modules/*/{build,source}
+	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
 endef
 
-# Side effect: Modules placed in /system/lib/modules
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
-	$(hide) rm -rf $(TARGET_OUT)/lib/modules
-	$(hide) mkdir -p $(TARGET_OUT)/lib/modules
-	$(if $(MOD_ENABLED),$(call make-modules))
-	$(hide) tar -cz -C $(TARGET_OUT)/lib/ -f $(CURDIR)/$@ modules
+	$(hide) rm -rf $(MODBUILD_OUTPUT)/lib/modules
+	$(hide) mkdir -p $(MODBUILD_OUTPUT)/lib/modules
+	$(if $(MOD_ENABLED),$(call make-modules,$(MODBUILD_OUTPUT)))
+	$(hide) tar -cz -C $(MODBUILD_OUTPUT)/lib/ -f $(CURDIR)/$@ modules
 
-# Side effect: Firmware placed in /system/lib/firmware
 $(INSTALLED_KERNELFW_TARGET): $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MODULES_TARGET) $(MINIGZIP)
-	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
-	$(hide) mkdir -p $(TARGET_OUT)/lib/firmware
-	$(if $(FIRMWARE_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(CURDIR)/$(TARGET_OUT) firmware_install)
-	$(hide) tar -cz -C $(TARGET_OUT)/lib/ -f $(CURDIR)/$@ firmware
+	$(hide) rm -rf $(MODBUILD_OUTPUT)/lib/firmware
+	$(hide) mkdir -p $(MODBUILD_OUTPUT)/lib/firmware
+	$(if $(FIRMWARE_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(MODBUILD_OUTPUT) firmware_install)
+	$(hide) tar -cz -C $(MODBUILD_OUTPUT)/lib/ -f $(CURDIR)/$@ firmware
 
 PREBUILT-PROJECT-linux: \
 		$(INSTALLED_KERNEL_TARGET) \
@@ -169,11 +171,7 @@ $(INSTALLED_SYSTEM_MAP): $(kernel_prebuilt_sysmap) | $(ACP)
 
 # Test if we have a kernel modules archive in the prebuilts area
 ifneq ($(kernel_prebuilt_mods),)
-# Side effect: Modules placed in /system/lib/modules
 $(INSTALLED_MODULES_TARGET): $(kernel_prebuilt_mods) | $(ACP)
-	$(hide) rm -rf $(TARGET_OUT)/lib/modules
-	$(hide) mkdir -p $(TARGET_OUT)/lib/
-	$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $<
 	$(copy-file-to-new-target)
 else # kernel_prebuilt_mods is empty
 # We empty the modules target
@@ -182,11 +180,7 @@ endif
 
 # Test if we have a kernel firmware archive in the prebuilts area
 ifneq ($(kernel_prebuilt_fw),)
-# Side effect: Firmware placed in /system/lib/firmware
 $(INSTALLED_KERNELFW_TARGET): $(kernel_prebuilt_fw) | $(ACP)
-	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
-	$(hide) mkdir -p $(TARGET_OUT)/lib/
-	$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $<
 	$(copy-file-to-new-target)
 else # kernel_prebuilt_fw is empty
 # We empty the firmware target
