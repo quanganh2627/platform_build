@@ -1032,7 +1032,7 @@ endif
 name := $(name)-target_files-$(FILE_NAME_TAG)
 
 intermediates := $(call intermediates-dir-for,PACKAGING,target_files)
-BUILT_TARGET_FILES_PACKAGE := $(intermediates)/$(name).zip
+BUILT_TARGET_FILES_PACKAGE := $(PRODUCT_OUT)/$(name).zip
 $(BUILT_TARGET_FILES_PACKAGE): intermediates := $(intermediates)
 $(BUILT_TARGET_FILES_PACKAGE): \
 		zip_root := $(intermediates)/$(name)
@@ -1156,12 +1156,12 @@ ifdef PRODUCT_EXTRA_RECOVERY_KEYS
 endif
 	$(call generate-userimage-prop-dictionary, $(zip_root)/META/misc_info.txt)
 	@# Zip everything up, preserving symlinks
-	$(hide) (cd $(zip_root) && zip -qry ../$(notdir $@) .)
+	$(hide) (cd $(zip_root) && zip -qry $(ANDROID_BUILD_TOP)/$@ .)
 	@# Run fs_config on all the system, boot ramdisk, and recovery ramdisk files in the zip, and save the output
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="SYSTEM/" } /^SYSTEM\// {print "system/" $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/filesystem_config.txt
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="BOOT/RAMDISK/" } /^BOOT\/RAMDISK\// {print $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/boot_filesystem_config.txt
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="RECOVERY/RAMDISK/" } /^RECOVERY\/RAMDISK\// {print $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/recovery_filesystem_config.txt
-	$(hide) (cd $(zip_root) && zip -q ../$(notdir $@) META/*filesystem_config.txt)
+	$(hide) (cd $(zip_root) && zip -q $(ANDROID_BUILD_TOP)/$@ META/*filesystem_config.txt)
 
 
 target-files-package: $(BUILT_TARGET_FILES_PACKAGE)
