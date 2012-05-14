@@ -127,8 +127,8 @@ $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
 define make-ext-module
 	$(hide) mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
 	$(hide) $(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(2) modules
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(CURDIR)/$(2) modules_install
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules
+	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules_install
 
 endef
 
