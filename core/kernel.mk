@@ -53,13 +53,20 @@ endif
 ifneq ($(use_prebuilt_kernel),true)
 
 $(info Building kernel from source)
+
 ifeq ($(TARGET_ARCH),x86)
 KERNEL_TARGET := bzImage
 TARGET_KERNEL_CONFIG ?= android-x86_defconfig
+ifeq ($(TARGET_KERNEL_ARCH),)
+TARGET_KERNEL_ARCH := i386
+endif
 endif
 ifeq ($(TARGET_ARCH),arm)
 KERNEL_TARGET := zImage
 TARGET_KERNEL_CONFIG ?= goldfish_defconfig
+ifeq ($(TARGET_KERNEL_ARCH),)
+TARGET_KERNEL_ARCH := arm
+endif
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
@@ -76,12 +83,14 @@ MODBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 # This is needed by OTA applypatch, which makes much larger
 # binary diffs of compressed data if the deflate versions
 # are out of alignment.
-mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS=$(TARGET_KERNEL_EXTRA_CFLAGS)
+mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS=$(TARGET_KERNEL_EXTRA_CFLAGS)
+ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
 mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
 else
 mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
+endif
 endif
 endif
 
