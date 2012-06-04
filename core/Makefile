@@ -1004,6 +1004,9 @@ endif # BOARD_CACHEIMAGE_FILE_SYSTEM_TYPE
 ifeq ($(TARGET_USE_DISKINSTALLER),true)
 include bootable/diskinstaller/config.mk
 endif
+ifeq ($(TARGET_USE_IAGO),true)
+include bootable/iago/image.mk
+endif
 
 # -----------------------------------------------------------------
 # host tools needed to build dist and OTA packages
