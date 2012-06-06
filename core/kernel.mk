@@ -145,7 +145,7 @@ define make-modules
 	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
 	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(1)))
 	$(hide) rm -f $(1)/lib/modules/*/{build,source}
-	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
+	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} cp {} .
 endef
 
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
