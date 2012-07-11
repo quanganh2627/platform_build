@@ -66,11 +66,7 @@ ifneq ($(USE_CCACHE),)
   ifeq ($(HOST_OS)-$(BUILD_OS),windows-linux)
     CCACHE_HOST_TAG := linux-$(BUILD_ARCH)
   endif
-  CCACHE_BIN := $(shell which ccache)
-  ifndef CCACHE_BIN
-    CCACHE_BIN := $(shell readlink -f prebuilts/misc/$(CCACHE_HOST_TAG)/ccache/ccache)
-    $(info Using prebuilt 2.4 ccache; install a 3.x ccache on your workstation for better performance)
-  endif
+  CCACHE_BIN := $(shell readlink -f prebuilts/misc/$(CCACHE_HOST_TAG)/ccache/ccache)
   # Check that the executable is here.
   CCACHE_BIN := $(strip $(wildcard $(CCACHE_BIN)))
   ifdef CCACHE_BIN
