@@ -17,12 +17,6 @@ import re
 
 import common
 
-def get_device_string(s):
-    if s.startswith("$"):
-        return 'getprop("%s")' % (s[1:],)
-    else:
-        return '"%s"' % (s,)
-
 class EdifyGenerator(object):
   """Class to generate scripts in the 'edify' recovery script language
   used from donut onwards."""
@@ -142,9 +136,9 @@ class EdifyGenerator(object):
     fstab = self.info.get("fstab", None)
     if fstab:
       p = fstab[mount_point]
-      self.script.append('mount("%s", "%s", %s, "%s");' %
+      self.script.append('mount("%s", "%s", "%s", "%s");' %
                          (p.fs_type, common.PARTITION_TYPES[p.fs_type],
-                          get_device_string(p.device), p.mount_point))
+                          p.device, p.mount_point))
       self.mounts.add(p.mount_point)
 
   def UnpackPackageDir(self, src, dst):
@@ -173,7 +167,7 @@ class EdifyGenerator(object):
       p = fstab[partition]
       self.script.append('format("%s", "%s", "%s", "%s", "%s");' %
                          (p.fs_type, common.PARTITION_TYPES[p.fs_type],
-                          get_device_string(p.device), p.length, p.mount_point))
+                          p.device, p.length, p.mount_point))
 
   def DeleteFiles(self, file_list):
     """Delete all files in file_list."""
@@ -203,14 +197,14 @@ class EdifyGenerator(object):
     if fstab:
       p = fstab[mount_point]
       partition_type = common.PARTITION_TYPES[p.fs_type]
-      args = {'device': get_device_string(p.device), 'fn': fn}
+      args = {'device': p.device, 'fn': fn}
       if partition_type == "MTD":
         self.script.append(
-            'write_raw_image(package_extract_file("%(fn)s"), %(device)s);'
+            'write_raw_image(package_extract_file("%(fn)s"), "%(device)s");'
             % args)
       elif partition_type == "EMMC":
         self.script.append(
-            'package_extract_file("%(fn)s", %(device)s);' % args)
+            'package_extract_file("%(fn)s", "%(device)s");' % args)
       else:
         raise ValueError("don't know how to write \"%s\" partitions" % (p.fs_type,))
 
