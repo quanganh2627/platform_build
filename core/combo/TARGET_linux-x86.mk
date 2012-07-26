@@ -117,6 +117,9 @@ endif
 ifeq ($(ARCH_X86_HAVE_SSSE3),true)   # yes, really SSSE3, not SSE3!
     TARGET_GLOBAL_CFLAGS += -DUSE_SSSE3 -mssse3
 endif
+ifeq ($(ARCH_X86_HAVE_SSE4),true)
+    TARGET_GLOBAL_CFLAGS += -msse4
+endif
 ifeq ($(ARCH_X86_HAVE_SSE4_1),true)
     TARGET_GLOBAL_CFLAGS += -msse4.1
 endif
