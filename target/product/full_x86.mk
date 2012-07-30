@@ -30,6 +30,8 @@ ifdef NET_ETH0_STARTONBOOT
   PRODUCT_PROPERTY_OVERRIDES += net.eth0.startonboot=1
 endif
 
+$(call inherit-product, $(SRC_TARGET_DIR)/product/full_base_telephony.mk)
+
 # Ensure we package the BIOS files too.
 PRODUCT_PACKAGES += \
 	bios.bin \
