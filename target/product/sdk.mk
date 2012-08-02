@@ -89,8 +89,10 @@ PRODUCT_COPY_FILES := \
 	development/tools/emulator/system/camera/media_codecs.xml:system/etc/media_codecs.xml \
 	frameworks/native/data/etc/android.hardware.touchscreen.multitouch.jazzhand.xml:system/etc/permissions/android.hardware.touchscreen.multitouch.jazzhand.xml \
 	frameworks/native/data/etc/android.hardware.camera.autofocus.xml:system/etc/permissions/android.hardware.camera.autofocus.xml \
-	hardware/libhardware_legacy/audio/audio_policy.conf:system/etc/audio_policy.conf
+	hardware/libhardware_legacy/audio/audio_policy.conf:system/etc/audio_policy.conf \
+        frameworks/av/media/libeffects/data/audio_effects.conf:system/etc/audio_effects.conf
 
+$(call inherit-product-if-exists, frameworks/base/data/sounds/AllAudio.mk)
 $(call inherit-product-if-exists, frameworks/base/data/fonts/fonts.mk)
 $(call inherit-product-if-exists, frameworks/base/data/keyboards/keyboards.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/core.mk)
