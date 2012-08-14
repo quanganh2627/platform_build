@@ -16,6 +16,7 @@
 
 # Configuration for Linux on x86 as a target.
 # Included by combo/select.mk
+DEFAULT_COMPILER:=gcc
 
 # Provide a default variant.
 ifeq ($(strip $(TARGET_ARCH_VARIANT)),)
@@ -189,12 +190,13 @@ TARGET_STRIP_MODULE:=true
 TARGET_DEFAULT_SYSTEM_SHARED_LIBRARIES := libc libstdc++ libm
 
 TARGET_CUSTOM_LD_COMMAND := true
+
 define transform-o-to-shared-lib-inner
 $(hide) $(PRIVATE_CXX) \
 	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
 	 -nostdlib -Wl,-soname,$(notdir $@) \
 	 -shared -Bsymbolic \
-	$(TARGET_GLOBAL_CFLAGS) \
+	$(PRIVATE_TARGET_GLOBAL_CFLAGS) \
 	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
 	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_SO_O)) \
 	$(PRIVATE_ALL_OBJECTS) \
@@ -219,6 +221,7 @@ $(hide) $(PRIVATE_CXX) \
 	-Wl,-dynamic-linker,/system/bin/linker \
 	-Wl,-z,nocopyreloc \
 	-fPIE -pie \
+	$(PRIVATE_TARGET_GLOBAL_CFLAGS) \
 	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
 	-Wl,-rpath-link=$(TARGET_OUT_INTERMEDIATE_LIBRARIES) \
 	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_DYNAMIC_O)) \
@@ -242,6 +245,7 @@ $(hide) $(PRIVATE_CXX) \
 	$(PRIVATE_TARGET_GLOBAL_LDFLAGS) \
 	-nostdlib -Bstatic \
 	-o $@ \
+	$(PRIVATE_TARGET_GLOBAL_CFLAGS) \
 	$(PRIVATE_TARGET_GLOBAL_LD_DIRS) \
 	$(if $(filter true,$(PRIVATE_NO_CRT)),,$(PRIVATE_TARGET_CRTBEGIN_STATIC_O)) \
 	$(PRIVATE_LDFLAGS) \

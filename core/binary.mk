@@ -66,6 +66,13 @@ else
   endif
 endif
 
+# Correct icc libraries
+ifeq ($(LOCAL_IS_HOST_MODULE),)
+ifneq ($(strip $(call intel-target-need-intel-libraries)),)
+$(call icc-libs)
+endif
+endif
+
 ifdef LOCAL_SDK_VERSION
   # Get the list of INSTALLED libraries as module names.
   # We cannot compute the full path of the LOCAL_SHARED_LIBRARIES for
@@ -142,6 +149,15 @@ ifeq ($(strip $(LOCAL_ENABLE_APROF)),true)
   LOCAL_CPPFLAGS += -fno-omit-frame-pointer -fno-function-sections -pg
 endif
 
+###################################################
+# Configure flags for ICC
+###################################################
+ifeq ($(LOCAL_IS_HOST_MODULE),)
+ifneq ($(strip $(call intel-target-use-icc,$(LOCAL_MODULE))),)
+$(call icc-flags)
+endif
+endif
+
 ###########################################################
 ## Explicitly declare assembly-only __ASSEMBLY__ macro for
 ## assembly source
@@ -151,6 +167,7 @@ LOCAL_ASFLAGS += -D__ASSEMBLY__
 ###########################################################
 ## Define PRIVATE_ variables from global vars
 ###########################################################
+my_target_global_cppflags := $(TARGET_GLOBAL_CPPFLAGS)
 ifdef LOCAL_SDK_VERSION
 my_target_project_includes :=
 my_target_c_includes := $(my_ndk_stl_include_path) $(my_ndk_version_root)/usr/include
@@ -163,19 +180,35 @@ ifeq ($(LOCAL_CLANG),true)
 my_target_global_cflags := $(TARGET_GLOBAL_CLANG_FLAGS)
 my_target_c_includes += $(CLANG_CONFIG_EXTRA_TARGET_C_INCLUDES)
 else
+ifneq ($(strip $(call intel-target-use-icc,$(LOCAL_MODULE))),)
+my_target_global_cflags   := $(TARGET_GLOBAL_ICC_CFLAGS)
+my_target_global_cppflags := $(TARGET_GLOBAL_ICC_CPPFLAGS)
+else
 my_target_global_cflags := $(TARGET_GLOBAL_CFLAGS)
+endif
 endif # LOCAL_CLANG
 
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_PROJECT_INCLUDES := $(my_target_project_includes)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_C_INCLUDES := $(my_target_c_includes)
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_GLOBAL_CFLAGS := $(my_target_global_cflags)
-$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_GLOBAL_CPPFLAGS := $(TARGET_GLOBAL_CPPFLAGS)
+$(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_TARGET_GLOBAL_CPPFLAGS := $(my_target_global_cppflags)
 
 ###########################################################
 ## Define PRIVATE_ variables used by multiple module types
 ###########################################################
 $(LOCAL_INTERMEDIATE_TARGETS): PRIVATE_NO_DEFAULT_COMPILER_FLAGS := \
     $(strip $(LOCAL_NO_DEFAULT_COMPILER_FLAGS))
+
+ifeq ($(LOCAL_IS_HOST_MODULE),)
+  ifneq ($(strip $(call intel-target-use-icc,$(LOCAL_MODULE))),)
+    ifeq ($(strip $(LOCAL_CC)),)
+      LOCAL_CC := $(TARGET_ICC)
+    endif
+    ifeq ($(strip $(LOCAL_CXX)),)
+      LOCAL_CXX:= $(TARGET_ICPC)
+    endif
+  endif
+endif
 
 ifeq ($(strip $(LOCAL_CC)),)
   ifeq ($(strip $(LOCAL_CLANG)),true)
