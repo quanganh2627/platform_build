@@ -54,6 +54,17 @@ ifneq ($(use_prebuilt_kernel),true)
 
 $(info Building kernel from source)
 
+# Boards will typically need to set the following variables
+# TARGET_KERNEL_CONFIG - Name of the base defconfig to use
+# TARGET_KERNEL_CONFIG_OVERRIDES - 0 or more 'override' files to modify the
+#     base defconfig; for enable, special overrides for user builds to disable
+#     debug features, etc.
+# TARGET_KERNEL_SOURCE - Location of kernel source directory relative to the
+#     top level
+# TARGET_KERNEL_EXTRA_CFLAGS - Additional CFLAGS which will be passed to the
+#     kernel 'make' invocation as KCFLAGS
+
+
 ifeq ($(TARGET_ARCH),x86)
 KERNEL_TARGET := bzImage
 TARGET_KERNEL_CONFIG ?= android-x86_defconfig
@@ -70,11 +81,9 @@ endif
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
-TARGET_KERNEL_EXTRA_CFLAGS = -fno-pic
 
-
-KBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
-MODBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
+kbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 
 # Leading "+" gives child Make access to the jobserver.
 # gzip hack necessary to get the kernel to compress the
@@ -83,7 +92,7 @@ MODBUILD_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 # This is needed by OTA applypatch, which makes much larger
 # binary diffs of compressed data if the deflate versions
 # are out of alignment.
-mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(KBUILD_OUTPUT) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS=$(TARGET_KERNEL_EXTRA_CFLAGS)
+mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(kbuild_output) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS=$(TARGET_KERNEL_EXTRA_CFLAGS)
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
 ifneq ($(TARGET_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
@@ -94,36 +103,41 @@ endif
 endif
 endif
 
+# If there's a file in the arch-specific configs directory that matches
+# what's in $(TARGET_KERNEL_CONFIG), use that. Otherwise, use $(TARGET_KERNEL_CONFIG)
+# verbatim
 ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)),)
-KERNEL_CONFIG_FILE := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
+kernel_config_file := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
 else
-KERNEL_CONFIG_FILE := $(TARGET_KERNEL_CONFIG)
+kernel_config_file := $(TARGET_KERNEL_CONFIG)
 endif
 
-MOD_ENABLED = $(shell grep ^CONFIG_MODULES=y $(KERNEL_CONFIG_FILE))
-FIRMWARE_ENABLED = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(KERNEL_CONFIG_FILE))
+# FIXME: doesn't check overrides, only the base configuration file
+kernel_mod_enabled = $(shell grep ^CONFIG_MODULES=y $(kernel_config_file))
+kernel_fw_enabled = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(kernel_config_file))
 
-# I understand Android build system discourage to use submake,
-# but I don't want to write a complex Android.mk to build kernel.
-# This is the simplest way I can think.
-KERNEL_DOTCONFIG_FILE := $(KBUILD_OUTPUT)/.config
-$(KERNEL_DOTCONFIG_FILE): $(KERNEL_CONFIG_FILE) | $(ACP)
-	$(copy-file-to-new-target)
+# The actual .config that is in use during the build is derived from
+# a base $kernel_config_file, plus a a list of config overrides which
+# are processed in order.
+kernel_dotconfig_file := $(kbuild_output)/.config
+$(kernel_dotconfig_file): $(kernel_config_file) $(TARGET_KERNEL_CONFIG_OVERRIDES) | $(ACP)
+	$(hide) mkdir -p $(dir $@)
+	build/tools/build-defconfig.py $^ > $@
 
-BUILT_KERNEL_TARGET := $(KBUILD_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
+built_kernel_target := $(kbuild_output)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
 
 # Declared .PHONY to force a rebuild each time. We can't tell if the kernel
 # sources have changed from this context
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
-$(INSTALLED_KERNEL_TARGET): $(KERNEL_DOTCONFIG_FILE) $(MINIGZIP) | $(ACP)
-	$(hide) rm -f $(KBUILD_OUTPUT)/.config.old
+$(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(MINIGZIP) | $(ACP)
+	$(hide) rm -f $(kbuild_output)/.config.old
 	$(mk_kernel) oldnoconfig
-	$(mk_kernel) $(KERNEL_TARGET) $(if $(MOD_ENABLED),modules)
-	$(hide) $(ACP) -fp $(BUILT_KERNEL_TARGET) $@
+	$(mk_kernel) $(KERNEL_TARGET) $(if $(kernel_mod_enabled),modules)
+	$(hide) $(ACP) -fp $(built_kernel_target) $@
 
 $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
-	$(hide) $(ACP) $(KBUILD_OUTPUT)/System.map $@
+	$(hide) $(ACP) $(kbuild_output)/System.map $@
 
 # FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
 # source into an intermediate directory and compile it there, preserving
@@ -134,10 +148,10 @@ $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
 # default, need to define them each as an Android module and include them as
 # needed in PRODUCT_PACKAGES
 define make-ext-module
-	$(hide) mkdir -p $(KBUILD_OUTPUT)/extmods/$(1)
-	$(hide) $(ACP) -rtf $(1)/* $(KBUILD_OUTPUT)/extmods/$(1)
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules
-	$(mk_kernel) M=$(KBUILD_OUTPUT)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules_install
+	$(hide) mkdir -p $(kbuild_output)/extmods/$(1)
+	$(hide) $(ACP) -rtf $(1)/* $(kbuild_output)/extmods/$(1)
+	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules
+	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules_install
 
 endef
 
@@ -149,16 +163,16 @@ define make-modules
 endef
 
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
-	$(hide) rm -rf $(MODBUILD_OUTPUT)/lib/modules
-	$(hide) mkdir -p $(MODBUILD_OUTPUT)/lib/modules
-	$(if $(MOD_ENABLED),$(call make-modules,$(MODBUILD_OUTPUT)))
-	$(hide) tar -cz -C $(MODBUILD_OUTPUT)/lib/ -f $(CURDIR)/$@ modules
+	$(hide) rm -rf $(modbuild_output)/lib/modules
+	$(hide) mkdir -p $(modbuild_output)/lib/modules
+	$(if $(kernel_mod_enabled),$(call make-modules,$(modbuild_output)))
+	$(hide) tar -cz -C $(modbuild_output)/lib/ -f $(CURDIR)/$@ modules
 
 $(INSTALLED_KERNELFW_TARGET): $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MODULES_TARGET) $(MINIGZIP)
-	$(hide) rm -rf $(MODBUILD_OUTPUT)/lib/firmware
-	$(hide) mkdir -p $(MODBUILD_OUTPUT)/lib/firmware
-	$(if $(FIRMWARE_ENABLED),$(mk_kernel) INSTALL_MOD_PATH=$(MODBUILD_OUTPUT) firmware_install)
-	$(hide) tar -cz -C $(MODBUILD_OUTPUT)/lib/ -f $(CURDIR)/$@ firmware
+	$(hide) rm -rf $(modbuild_output)/lib/firmware
+	$(hide) mkdir -p $(modbuild_output)/lib/firmware
+	$(if $(kernel_fw_enabled),$(mk_kernel) INSTALL_MOD_PATH=$(modbuild_output) firmware_install)
+	$(hide) tar -cz -C $(modbuild_output)/lib/ -f $(CURDIR)/$@ firmware
 
 PREBUILT-PROJECT-linux: \
 		$(INSTALLED_KERNEL_TARGET) \
