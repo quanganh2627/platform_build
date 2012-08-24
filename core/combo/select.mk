@@ -85,7 +85,7 @@ ifneq ($(USE_CCACHE),)
   endif
   CCACHE_BIN := $(shell which ccache)
   ifndef CCACHE_BIN
-    CCACHE_BIN := $(shell readlink -f prebuilts/misc/$(CCACHE_HOST_TAG)/ccache/ccache)
+    CCACHE_BIN := prebuilts/misc/$(CCACHE_HOST_TAG)/ccache/ccache
     $(info Using prebuilt 2.4 ccache; install a 3.x ccache on your workstation for better performance)
   endif
   # Check that the executable is here.
