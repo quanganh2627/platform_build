@@ -254,12 +254,15 @@ $(APKCERTS_FILE):
 	@echo APK certs list: $@
 	@mkdir -p $(dir $@)
 	@rm -f $@
-	$(hide) $(foreach p,$(PACKAGES),\
-          $(if $(PACKAGES.$(p).EXTERNAL_KEY),\
-	    echo 'name="$(p).apk" certificate="EXTERNAL" \
-	         private_key=""' >> $@;,\
-	    echo 'name="$(p).apk" certificate="$(PACKAGES.$(p).CERTIFICATE)" \
-	         private_key="$(PACKAGES.$(p).PRIVATE_KEY)"' >> $@;))
+	$(hide) for xline in \
+			$(foreach p,$(PACKAGES),\
+			$(if $(PACKAGES.$(p).EXTERNAL_KEY),\
+				'$(p) EXTERNAL',\
+				'$(p) $(PACKAGES.$(p).CERTIFICATE) $(PACKAGES.$(p).PRIVATE_KEY)')) ; \
+		do \
+			read pkg_name pkg_cer pkg_key <<<$${xline}; \
+			echo name=\"$${pkg_name}\" certificate=\"$${pkg_cer}\" private_key=\"$${pkg_key}\" >>$@ ; \
+		done
 	# In case $(PACKAGES) is empty.
 	$(hide) touch $@
 
