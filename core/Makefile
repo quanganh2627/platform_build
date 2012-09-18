@@ -775,9 +775,9 @@ $(BUILT_SYSTEMIMAGE): $(INSTALLED_MODULES_TARGET) \
 	$(hide) rm -rf $(TARGET_OUT)/lib/firmware
 	$(hide) mkdir -p $(TARGET_OUT)/lib/
 	$(if $(INSTALLED_MODULES_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_MODULES_TARGET))
-	$(hide) chmod -fR g-w $(TARGET_OUT)/lib/modules
+	$(hide) -chmod -fR g-w $(TARGET_OUT)/lib/modules
 	$(if $(INSTALLED_KERNELFW_TARGET),$(hide) tar -xz -C $(TARGET_OUT)/lib/ -f $(INSTALLED_KERNELFW_TARGET))
-	$(hide) chmod -fR g-w $(TARGET_OUT)/lib/firmware
+	$(hide) -chmod -fR g-w $(TARGET_OUT)/lib/firmware
 	$(call build-systemimage-target,$@)
 
 INSTALLED_SYSTEMIMAGE := $(PRODUCT_OUT)/system.img
