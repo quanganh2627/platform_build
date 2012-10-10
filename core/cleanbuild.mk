@@ -187,6 +187,11 @@ installclean_files := \
 	$(PRODUCT_OUT)/system \
 	$(PRODUCT_OUT)/dex_bootjars \
 	$(PRODUCT_OUT)/obj/JAVA_LIBRARIES \
+	$(PRODUCT_OUT)/droidboot \
+	$(PRODUCT_OUT)/iago \
+	$(PRODUCT_OUT)/installer \
+	$(PRODUCT_OUT)/obj/kernel \
+	$(PRODUCT_OUT)/obj/kernelmods \
 	$(PRODUCT_OUT)/obj/FAKE
 
 # The files/dirs to delete during a dataclean, which removes any files
