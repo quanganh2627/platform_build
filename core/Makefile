@@ -1105,6 +1105,9 @@ endif # BOARD_VENDORIMAGE_FILE_SYSTEM_TYPE
 ifeq ($(TARGET_USE_DISKINSTALLER),true)
 include bootable/diskinstaller/config.mk
 endif
+ifeq ($(TARGET_USE_IAGO),true)
+include bootable/iago/image.mk
+endif
 
 # -----------------------------------------------------------------
 # host tools needed to build dist and OTA packages
@@ -1662,6 +1665,10 @@ include $(sort $(wildcard $(BUILD_SYSTEM)/tasks/*.mk))
 -include $(sort $(wildcard vendor/*/build/tasks/*.mk))
 -include $(sort $(wildcard device/*/build/tasks/*.mk))
 $(call import-mixin-file,buildtask.mk)
+endif
+
+ifeq ($(TARGET_USE_IAGO),true)
+include bootable/iago/provision.mk
 endif
 
 # -----------------------------------------------------------------
