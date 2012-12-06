@@ -94,11 +94,11 @@ modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 # are out of alignment.
 mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(kbuild_output) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
-ifneq ($(TARGET_TOOLS_PREFIX),)
+ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
 ifneq ($(USE_CCACHE),)
-mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_TOOLS_PREFIX)"
+mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)"
 else
-mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_TOOLS_PREFIX)
+mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)
 endif
 endif
 endif
