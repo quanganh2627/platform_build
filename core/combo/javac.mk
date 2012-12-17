@@ -26,7 +26,7 @@ endif
 ifeq ($(CUSTOM_JAVA_COMPILER), openjdk)
     # We set the VM options (like -Xmx) in the javac script.
     COMMON_JAVAC := prebuilt/common/openjdk/bin/javac -target 1.5 \
-        -Xmaxerrs 9999999
+        -source 1.5 -Xmaxerrs 9999999
     $(info CUSTOM_JAVA_COMPILER=openjdk)
 endif
    
