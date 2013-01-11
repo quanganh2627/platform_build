@@ -177,21 +177,23 @@ ifeq ($(LOCAL_DEX_PREOPT),true)
 $(built_module): $(DEXPREOPT_BOOT_ODEXS) | $(DEXPREOPT) $(DEXOPT) $(AAPT)
 endif
 ifeq ($(LOCAL_CERTIFICATE),PRESIGNED)
-# Ensure that presigned .apks have been aligned.
-$(built_module) : $(my_prebuilt_src_file) | $(ZIPALIGN)
-	$(transform-prebuilt-to-target-with-zipalign)
+$(built_module) : $(my_prebuilt_src_file) | $(ACP) $(ZIPALIGN)
+	$(transform-prebuilt-to-target)
 else
-# Sign and align non-presigned .apks.
+# Sign non-presigned .apks.
 $(built_module) : $(my_prebuilt_src_file) | $(ACP) $(ZIPALIGN) $(SIGNAPK_JAR)
 	$(transform-prebuilt-to-target)
 	$(sign-package)
-	$(align-package)
 endif
 ifeq ($(LOCAL_DEX_PREOPT),true)
 	$(hide) rm -f $(patsubst %.apk,%.odex,$@)
 	$(call dexpreopt-one-file,$@,$(patsubst %.apk,%.odex,$@))
 	$(call dexpreopt-remove-classes.dex,$@)
+endif
+# Align non-presigned and presigned .apks
+	$(align-package)
 
+ifeq ($(LOCAL_DEX_PREOPT),true)
 built_odex := $(basename $(built_module)).odex
 $(built_odex): $(built_module)
 endif
