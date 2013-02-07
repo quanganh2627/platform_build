@@ -14,7 +14,7 @@ ARCH_X86_HAVE_AVX    := true
 
 # CFLAGS for this arch
 arch_variant_cflags := \
-	-march=corei7-avx \
+	-march=core-avx-i \
 	-mstackrealign \
 	-mfpmath=sse \
 
