@@ -1,7 +1,5 @@
 # Configuration for Linux on x86.
 # Generating binaries for Haswell processors.
-# FIXME: This is just ivy bridge; update for Haswell
-# capabilities once we have compiler support
 
 ARCH_X86_HAVE_MMX    := true
 ARCH_X86_HAVE_SSE    := true
@@ -16,7 +14,7 @@ ARCH_X86_HAVE_AVX    := true
 
 # CFLAGS for this arch
 arch_variant_cflags := \
-	-march=corei7-avx \
+	-march=core-avx2 \
 	-mstackrealign \
 	-mfpmath=sse \
 
