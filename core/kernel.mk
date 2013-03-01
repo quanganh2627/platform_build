@@ -116,6 +116,21 @@ endif
 kernel_mod_enabled = $(shell grep ^CONFIG_MODULES=y $(kernel_config_file))
 kernel_fw_enabled = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(kernel_config_file))
 
+# signed kernel modules
+kernel_signed_mod_enabled = $(shell grep ^CONFIG_MODULE_SIG=y $(kernel_config_file))
+
+# Copy a prebuilt key pair and keygen file to the kernel output directory
+# if it happens prior to building kernel, rules to generate new keys in kernel's
+# Makefile will not be run.
+define copy-module-keys
+	$(info sign kernel modules with: $(TARGET_MODULE_PRIVATE_KEY) $(TARGET_MODULE_CERTIFICATE) $(TARGET_MODULE_GENKEY))
+	$(hide) mkdir -p $(kbuild_output)
+	$(hide) $(ACP) $(TARGET_MODULE_GENKEY) $(kbuild_output)/x509.genkey
+	$(hide) $(ACP) $(TARGET_MODULE_PRIVATE_KEY) $(kbuild_output)/signing_key.priv
+	$(hide) $(ACP) $(TARGET_MODULE_CERTIFICATE) $(kbuild_output)/signing_key.x509
+endef
+
+
 # The actual .config that is in use during the build is derived from
 # a base $kernel_config_file, plus a a list of config overrides which
 # are processed in order.
@@ -131,6 +146,7 @@ built_kernel_target := $(kbuild_output)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
 $(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(MINIGZIP) | $(ACP)
+	$(if $(kernel_signed_mod_enabled),$(call copy-module-keys))
 	$(hide) rm -f $(kbuild_output)/.config.old
 	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(kernel_mod_enabled),modules)
