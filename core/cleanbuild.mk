@@ -199,6 +199,7 @@ installclean_files := \
 	$(PRODUCT_OUT)/kernel \
 	$(PRODUCT_OUT)/droidboot \
 	$(PRODUCT_OUT)/iago \
+	$(PRODUCT_OUT)/efi \
 	$(PRODUCT_OUT)/obj/FAKE
 
 # The files/dirs to delete during a dataclean, which removes any files
