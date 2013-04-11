@@ -93,6 +93,8 @@ BUILD_PREBUILT_BUNDLE := $(BUILD_SYSTEM)/prebuilt_bundle.mk
 # the kind of operation being done.
 SHOW_COMMANDS:= $(filter showcommands,$(MAKECMDGOALS))
 
+# The 'enabledebug' goal says to manually enable debug in release build
+ENABLE_DEBUG:= $(filter enabledebug,$(MAKECMDGOALS))
 
 # ###############################################################
 # Set common values

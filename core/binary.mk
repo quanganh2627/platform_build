@@ -148,6 +148,13 @@ ifeq ($(strip $(LOCAL_ENABLE_APROF)),true)
   LOCAL_CPPFLAGS += -fno-omit-frame-pointer -fno-function-sections -pg
 endif
 
+####################################################
+## Enable debug macro if ENABLE_DEBUG was set
+####################################################
+ifneq ($(strip $(ENABLE_DEBUG)),)
+  LOCAL_CFLAGS += -O0 -DDEBUG -UNDEBUG
+endif
+
 ###########################################################
 ## Explicitly declare assembly-only __ASSEMBLY__ macro for
 ## assembly source
