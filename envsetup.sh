@@ -686,6 +686,8 @@ function mmm()
                     ARGS="$ARGS showcommands"
                 elif [ "$DIR" = dist ]; then
                     ARGS="$ARGS dist"
+                elif [ "$DIR" = enabledebug ]; then
+                    ARGS="$ARGS enabledebug"
                 elif [ "$DIR" = incrementaljavac ]; then
                     ARGS="$ARGS incrementaljavac"
                 else

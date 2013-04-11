@@ -200,7 +200,7 @@ endif
 # These are the modifier targets that don't do anything themselves, but
 # change the behavior of the build.
 # (must be defined before including definitions.make)
-INTERNAL_MODIFIER_TARGETS := showcommands checkbuild all incrementaljavac
+INTERNAL_MODIFIER_TARGETS := showcommands checkbuild all incrementaljavac enabledebug
 
 .PHONY: incrementaljavac
 incrementaljavac: ;
@@ -916,6 +916,10 @@ modules:
 
 .PHONY: showcommands
 showcommands:
+	@echo >/dev/null
+
+.PHONY: enabledebug
+enabledebug:
 	@echo >/dev/null
 
 .PHONY: nothing
