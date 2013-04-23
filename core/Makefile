@@ -268,7 +268,7 @@ $(APKCERTS_FILE):
 				'$(p) $(PACKAGES.$(p).CERTIFICATE) $(PACKAGES.$(p).PRIVATE_KEY)')) ; \
 		do \
 			read pkg_name pkg_cer pkg_key <<<$${xline}; \
-			echo name=\"$${pkg_name}\" certificate=\"$${pkg_cer}\" private_key=\"$${pkg_key}\" >>$@ ; \
+			echo name=\"$${pkg_name}.apk\" certificate=\"$${pkg_cer}\" private_key=\"$${pkg_key}\" >>$@ ; \
 		done
 	# In case $(PACKAGES) is empty.
 	$(hide) touch $@
