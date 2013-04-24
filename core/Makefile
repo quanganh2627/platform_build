@@ -292,6 +292,42 @@ ifneq (,$(TARGET_BUILD_APPS))
 endif
 
 # -----------------------------------------------------------------
+# Cert-to-package mapping.  Used by the post-build signing tools.
+# This list is used to re-sign binaries with sbsign.
+name := $(TARGET_PRODUCT)
+ifeq ($(TARGET_BUILD_TYPE),debug)
+  name := $(name)_debug
+endif
+name := $(name)-sbsigncerts-$(FILE_NAME_TAG)
+intermediates := \
+	$(call intermediates-dir-for,PACKAGING,sbsign_certs)
+SBSIGN_CERTS_FILE := $(intermediates)/$(name).txt
+# We don't need to really build all the modules.
+# TODO: rebuild SBSIGN_CERTS_FILE if any app change its cert.
+$(SBSIGN_CERTS_FILE):
+	@echo SBSIGN certs list: $@
+	@mkdir -p $(dir $@)
+	@rm -f $@
+	$(hide) for xline in \
+			$(foreach p,$(PACKAGES),\
+			$(if $(PACKAGES.$(p).SBSIGN_KEY),\
+				'$(p) $(PACKAGES.$(p).SBSIGN_CERTIFICATE) $(PACKAGES.$(p).SBSIGN_PRIVATE_KEY) $(PACKAGES.$(p).SBSIGN_BINARY_REPLACE_CERTIFICATE)', \
+				'$(p) IGNORE')) ; \
+		do \
+			read pkg_name pkg_cer pkg_key pkg_replace <<<$${xline}; \
+			echo name=\"$${pkg_name}\" certificate=\"$${pkg_cer}\" private_key=\"$${pkg_key}\" binary_replace_cert=\"$${pkg_replace}\" >>$@ ; \
+		done
+	# In case $(PACKAGES) is empty.
+	$(hide) touch $@
+
+.PHONY: sbsigncerts-list
+sbsigncerts-list: $(SBSIGN_CERTS_FILE)
+
+ifneq (,$(TARGET_BUILD_APPS))
+  $(call dist-for-goals, apps_only, $(SBSIGN_CERTS_FILE):sbsign_certs.txt)
+endif
+
+# -----------------------------------------------------------------
 # module info file
 ifdef CREATE_MODULE_INFO_FILE
   MODULE_INFO_FILE := $(PRODUCT_OUT)/module-info.txt
@@ -1228,6 +1264,8 @@ $(BUILT_TARGET_FILES_PACKAGE): \
 		$(USERFASTBOOT_BOOTIMAGE) \
 		$(built_ota_tools) \
 		$(APKCERTS_FILE) \
+		$(SBSIGN_CERTS_FILE) \
+		$(TARGET_FILES_PACKAGE_DISCARD_FILES) \
 		$(HOST_OUT_EXECUTABLES)/fs_config \
 		| $(ACP)
 	@echo "Package target files: $@"
@@ -1315,6 +1353,12 @@ endif
 	@# build them.
 	$(hide) mkdir -p $(zip_root)/META
 	$(hide) $(ACP) $(APKCERTS_FILE) $(zip_root)/META/apkcerts.txt
+	$(hide) $(ACP) $(SBSIGN_CERTS_FILE) $(zip_root)/META/sbsign_certs.txt
+ifdef TARGET_FILES_PACKAGE_DISCARD_FILES
+	$(hide) $(foreach t,$(TARGET_FILES_PACKAGE_DISCARD_FILES),\
+	            mkdir -p $(zip_root)/DISCARD/$(dir $(t)); \
+	            $(ACP) $(t) $(zip_root)/DISCARD/$(t);)
+endif
 	$(hide)	echo "$(PRODUCT_OTA_PUBLIC_KEYS)" > $(zip_root)/META/otakeys.txt
 	$(hide) echo "recovery_api_version=$(PRIVATE_RECOVERY_API_VERSION)" > $(zip_root)/META/misc_info.txt
 	$(hide) echo "fstab_version=$(PRIVATE_RECOVERY_FSTAB_VERSION)" >> $(zip_root)/META/misc_info.txt
