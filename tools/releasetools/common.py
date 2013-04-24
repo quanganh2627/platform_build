@@ -54,7 +54,8 @@ OPTIONS.info_dict = None
 
 
 # Values for "certificate" in apkcerts that mean special things.
-SPECIAL_CERT_STRINGS = ("PRESIGNED", "EXTERNAL")
+SPECIAL_CERT_STRINGS = ("PRESIGNED", "EXTERNAL", "SBSIGN")
+IGNORE_CERT_STRINGS = ("IGNORE")
 
 
 class ExternalError(RuntimeError): pass
@@ -398,6 +399,7 @@ def GetKeyPasswords(keylist):
             stdin=devnull.fileno(),
             stdout=devnull.fileno(),
             stderr=subprocess.STDOUT)
+
     p.communicate()
     if p.returncode == 0:
       # Definitely an unencrypted key.
@@ -474,6 +476,56 @@ def SignFile(input_name, output_name, key, password, align=None,
     temp.close()
 
 
+def SbsignFile(input_name, output_name, key, password):
+  """Sign the input_name binary with sbsign, producing output_name.
+  Use the given key and password (the latter may be None if the key
+  does not have a password.
+  """
+
+  # sbsign needs PEM formatted key and certificate.
+  # Will need to convert DER formatted private to PEM format.
+  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key))
+  key_f = tempfile.NamedTemporaryFile()
+  key_f.write(key_data)
+  key_f.flush()
+
+  cert_data = ReadCertificateFile(key)
+  cert_f = tempfile.NamedTemporaryFile()
+  cert_f.write(cert_data)
+  cert_f.flush()
+
+  cmd = ["sbsign", "--key", key_f.name,
+           "--cert", cert_f.name,
+           "--output", output_name, input_name]
+
+  p = Run(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+  if password is not None:
+    password += "\n"
+  p.communicate(password)
+  if p.returncode != 0:
+    raise ExternalError("sbsign failed: return code %s" % (p.returncode,))
+
+  key_f.close()
+  cert_f.close()
+
+
+def BinaryCertReplaceFile(input_name, output_name, key, password):
+  """Sign the input_name binary with sbsign, producing output_name.
+  Use the given key and password (the latter may be None if the key
+  does not have a password.
+  """
+
+  cmd = ["sbsign", "--key", key + ".key", "--cert", key + ".crt",
+           "--output", output_name, input_name]
+
+  p = Run(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+  if password is not None:
+    password += "\n"
+  p.communicate(password)
+  if p.returncode != 0:
+    raise ExternalError("sbsign failed: return code %s" % (p.returncode,))
+
+
 def CheckSize(data, target, info_dict):
   """Check the data string passed against the max size limit, if
   any, for the given target.  Raise exception if the data is too big.
@@ -531,6 +583,123 @@ def ReadApkCerts(tf_zip):
       else:
         raise ValueError("failed to parse line from apkcerts.txt:\n" + line)
   return certmap
+
+
+def ReadSbsignCerts(tf_zip):
+  """Given a target_files ZipFile, parse the META/sbsign_certs.txt file
+  and return a {package: cert} dict."""
+  certmap = {}
+  for line in tf_zip.read("META/sbsign_certs.txt").split("\n"):
+    line = line.strip()
+    if not line: continue
+    m = re.match(r'^name="(.*)"\s+certificate="(.*)"\s+'
+                 r'private_key="(.*)"\s+'
+                 r'binary_replace_cert="(.*)"$', line)
+    if m:
+      name, cert, privkey, bin_replace = m.groups()
+      if cert and privkey:
+        certmap[name] = cert
+      elif cert not in IGNORE_CERT_STRINGS:
+        raise ValueError("failed to parse line from sbsign_certs.txt:\n" + line)
+  return certmap
+
+
+def ReadBinaryReplaceCerts(tf_zip):
+  """Given a target_files ZipFile, parse the META/sbsign_certs.txt file
+  and return a {package: binary_replace_cert} dict."""
+  replace_map = {}
+  for line in tf_zip.read("META/sbsign_certs.txt").split("\n"):
+    line = line.strip()
+    if not line: continue
+    m = re.match(r'^name="(.*)"\s+certificate="(.*)"\s+'
+                 r'private_key="(.*)"\s+'
+                 r'binary_replace_cert="(.*)"$', line)
+    if m:
+      name, cert, privkey, bin_replace = m.groups()
+      if bin_replace:
+        replace_map[name] = bin_replace
+  return replace_map
+
+
+def GetCertificateDER(data):
+  """Given the data of a certificate file in x.509,
+  convert to DER format if necessary using OpenSSL."""
+  if b'CERTIFICATE' in data:
+    cert_pem = tempfile.NamedTemporaryFile()
+    cert_pem.write(data)
+    cert_pem.flush()
+
+    cert_der = tempfile.NamedTemporaryFile()
+
+    p = Run(["openssl", "x509",
+              "-in", cert_pem.name,
+              "-inform", "PEM",
+              "-out", cert_der.name,
+              "-outform", "DER"],
+            stderr=subprocess.STDOUT)
+    p.communicate()
+    if not p.returncode == 0:
+      raise ExternalError("error converting certificate from PEM to DER")
+
+    output = cert_der.read()
+
+    cert_pem.close()
+    cert_der.close()
+  else:
+    output = data
+
+  return output
+
+
+def GetPrivateKeyPEM(data):
+  """Given the data of a private key file in pkcs8,
+  convert to PEM format if necessary using OpenSSL."""
+  if b'PRIVATE KEY' not in data:
+    cert_pem = tempfile.NamedTemporaryFile()
+    cert_pem.write(data)
+    cert_pem.flush()
+
+    cert_der = tempfile.NamedTemporaryFile()
+
+    p = Run(["openssl", "pkcs8",
+              "-in", cert_pem.name,
+              "-inform", "DER",
+              "-out", cert_der.name,
+              "-outform", "PEM",
+              "-nocrypt"],
+            stderr=subprocess.STDOUT)
+    p.communicate()
+    if not p.returncode == 0:
+      raise ExternalError("error converting private key from DER to PEM")
+
+    output = cert_der.read()
+
+    cert_pem.close()
+    cert_der.close()
+  else:
+    output = data
+
+  return output
+
+
+def ReadCertificateFile(cert_prefix):
+  """Given the prefix to the filename of a certificate file
+  read the content of the certificate into memory."""
+  f = open(cert_prefix + OPTIONS.public_key_suffix, "r+b")
+  data = f.read()
+  f.close()
+
+  return data
+
+
+def ReadPrivateKeyFile(key_prefix):
+  """Given the prefix to the filename of a certificate file
+  read the content of the certificate into memory."""
+  f = open(key_prefix + OPTIONS.private_key_suffix, "r+b")
+  data = f.read()
+  f.close()
+
+  return data
 
 
 COMMON_DOCSTRING = """
