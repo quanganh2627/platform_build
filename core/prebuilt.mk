@@ -98,6 +98,21 @@ else ifeq ($(LOCAL_CERTIFICATE),PRESIGNED)
   # but the dexpreopt process will not try to re-sign the app.
   PACKAGES.$(LOCAL_MODULE).CERTIFICATE := PRESIGNED
   PACKAGES := $(PACKAGES) $(LOCAL_MODULE)
+else ifeq ($(LOCAL_CERTIFICATE),SBSIGN)
+  # The magic string "SBSIGN" means this package is already signed.
+  # If LOCAL_SBSIGN_REPLACE_CERTIFICATE is specified, the final package
+  # will be re-signed with a different key later.
+  #
+  # By setting .CERTIFICATE but not .PRIVATE_KEY, this package will be
+  # mentioned in apkcerts.txt (with certificate set to "SBSIGN")
+  # but the dexpreopt process will not try to re-sign the app.
+  PACKAGES.$(LOCAL_MODULE).CERTIFICATE := SBSIGN
+  PACKAGES := $(PACKAGES) $(LOCAL_MODULE)
+
+  PACKAGES.$(LOCAL_MODULE).SBSIGN_KEY := 1
+  PACKAGES.$(LOCAL_MODULE).SBSIGN_PRIVATE_KEY := $(LOCAL_SBSIGN_CERTIFICATE)
+  PACKAGES.$(LOCAL_MODULE).SBSIGN_CERTIFICATE := $(LOCAL_SBSIGN_CERTIFICATE)
+  PACKAGES.$(LOCAL_MODULE).SBSIGN_BINARY_REPLACE_CERTIFICATE := $(LOCAL_SBSIGN_BINARY_REPLACE_CERTIFICATE)
 else
   # If this is not an absolute certificate, assign it to a generic one.
   ifeq ($(dir $(strip $(LOCAL_CERTIFICATE))),./)
