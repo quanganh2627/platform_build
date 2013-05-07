@@ -21,33 +21,34 @@ use_prebuilt_kernel :=
 # then using the wildcard function to actually see if these files exist in the
 # TARGET_PREBUILT_KERNEL_DIR directory, which is usually set in a
 # BoardConfig.mk file.
-kernel_prebuilt_image  := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNEL_TARGET)))
-kernel_prebuilt_sysmap := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_SYSTEM_MAP)))
-kernel_prebuilt_mods   := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_MODULES_TARGET)))
-kernel_prebuilt_fw     := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNELFW_TARGET)))
+kernel_prebuilt_image   := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNEL_TARGET)))
+kernel_prebuilt_sysmap  := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_SYSTEM_MAP)))
+kernel_prebuilt_mods    := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_MODULES_TARGET)))
+kernel_prebuilt_fw      := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNELFW_TARGET)))
+kernel_prebuilt_scripts := $(wildcard $(TARGET_PREBUILT_KERNEL_DIR)/$(notdir $(INSTALLED_KERNEL_SCRIPTS)))
 
-# The kernel image and the System.map files are mandatory for considering that
+# The kernel image, scripts, and System.map files are mandatory for considering that
 # we have a full prebuilt kernel. So, both the above set variables are actually
 # pointing to existing files, then we can consider using prebuilt kernels.
-ifneq ($(and $(kernel_prebuilt_image),$(kernel_prebuilt_sysmap)),)
-$(info KERNEL: Kernel prebuilt image and system map are available)
+ifneq ($(and $(kernel_prebuilt_image),$(kernel_prebuilt_sysmap),$(kernel_prebuilt_scripts)),)
+  $(info KERNEL: Kernel prebuilt image, scripts, system map are available)
 
-# We have all the ingredients necessary for prebuilt kernels, but we make sure
-# that the user didn't set the BUILD_KERNEL variable, in which case we will be
-# forcing the kernel build from source.
-ifeq ($(BUILD_KERNEL),)
-$(info KERNEL: BUILD_KERNEL is not set, will not force kernel source build)
+  # We have all the ingredients necessary for prebuilt kernels, but we make sure
+  # that the user didn't set the BUILD_KERNEL variable, in which case we will be
+  # forcing the kernel build from source.
+  ifeq ($(BUILD_KERNEL),)
+    $(info KERNEL: BUILD_KERNEL is not set, will not force kernel source build)
 
-# Under this condition, we set use_prebuilt_kernel to true, which means that we
-# will be using prebuilt kernels below.
-use_prebuilt_kernel := true
-$(info KERNEL: Will use prebuilt kernel)
-else # BUILD_KERNEL != null
-# This is the case where users force kernel build from source.
-$(info KERNEL: BUILD_KERNEL is set to a non-null value. Will not use prebuilt kernels)
-endif
+    # Under this condition, we set use_prebuilt_kernel to true, which means that we
+    # will be using prebuilt kernels below.
+    use_prebuilt_kernel := true
+    $(info KERNEL: Will use prebuilt kernel)
+  else # BUILD_KERNEL != null
+    # This is the case where users force kernel build from source.
+    $(info KERNEL: BUILD_KERNEL is set to a non-null value. Will not use prebuilt kernels)
+  endif
 else # kernel prebuilt mandatory ingredients are not available
-$(info KERNEL: Kernel prebuilt image and/or system map are not available. Will not use prebuilt kernels)
+  $(info KERNEL: Kernel prebuilt image, scripts, and/or system map are not available. Will not use prebuilt kernels)
 endif
 
 ifneq ($(use_prebuilt_kernel),true)
@@ -66,23 +67,28 @@ $(info Building kernel from source)
 
 
 ifeq ($(TARGET_ARCH),x86)
-KERNEL_TARGET := bzImage
-TARGET_KERNEL_CONFIG ?= android-x86_defconfig
-ifeq ($(TARGET_KERNEL_ARCH),)
-TARGET_KERNEL_ARCH := i386
+  KERNEL_TARGET := bzImage
+  TARGET_KERNEL_CONFIG ?= android-x86_defconfig
+  ifeq ($(TARGET_KERNEL_ARCH),)
+    TARGET_KERNEL_ARCH := i386
+  endif
 endif
-endif
+
 ifeq ($(TARGET_ARCH),arm)
-KERNEL_TARGET := zImage
-TARGET_KERNEL_CONFIG ?= goldfish_defconfig
-ifeq ($(TARGET_KERNEL_ARCH),)
-TARGET_KERNEL_ARCH := arm
-endif
+  KERNEL_TARGET := zImage
+  TARGET_KERNEL_CONFIG ?= goldfish_defconfig
+  ifeq ($(TARGET_KERNEL_ARCH),)
+    TARGET_KERNEL_ARCH := arm
+  endif
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
 
+TARGET_KERNEL_SCRIPTS := sign-file $(BOARD_KERNEL_SCRIPTS)
+
+kernel_script_deps := $(foreach s,$(TARGET_KERNEL_SCRIPTS),$(TARGET_KERNEL_SOURCE)/scripts/$(s))
 kbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+script_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kscripts
 modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 
 # Leading "+" gives child Make access to the jobserver.
@@ -94,22 +100,22 @@ modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 # are out of alignment.
 mk_kernel := + $(hide) PATH=$(CURDIR)/build/tools/gzip_hack/:$(PATH) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(kbuild_output) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
-ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
-ifneq ($(USE_CCACHE),)
-mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)"
-else
-mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)
-endif
-endif
+  ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
+    ifneq ($(USE_CCACHE),)
+      mk_kernel += CROSS_COMPILE="$(CCACHE_BIN) $(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)"
+    else
+       mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)
+    endif
+  endif
 endif
 
 # If there's a file in the arch-specific configs directory that matches
 # what's in $(TARGET_KERNEL_CONFIG), use that. Otherwise, use $(TARGET_KERNEL_CONFIG)
 # verbatim
 ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)),)
-kernel_config_file := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
+  kernel_config_file := $(TARGET_KERNEL_SOURCE)/arch/$(TARGET_ARCH)/configs/$(TARGET_KERNEL_CONFIG)
 else
-kernel_config_file := $(TARGET_KERNEL_CONFIG)
+  kernel_config_file := $(TARGET_KERNEL_CONFIG)
 endif
 
 # FIXME: doesn't check overrides, only the base configuration file
@@ -190,14 +196,22 @@ $(INSTALLED_KERNELFW_TARGET): $(INSTALLED_KERNEL_TARGET) $(INSTALLED_MODULES_TAR
 	$(if $(kernel_fw_enabled),$(mk_kernel) INSTALL_MOD_PATH=$(modbuild_output) firmware_install)
 	$(hide) tar -cz -C $(modbuild_output)/lib/ -f $(CURDIR)/$@ firmware
 
+$(INSTALLED_KERNEL_SCRIPTS): $(kernel_script_deps) | $(ACP)
+	$(hide) rm -rf $(script_output)
+	$(hide) mkdir -p $(script_output)
+	$(hide) $(ACP) -p $(kernel_script_deps) $(script_output)
+	$(hide) tar -cz -C $(script_output) -f $(CURDIR)/$@ $(foreach item,$(kernel_script_deps),$(notdir $(item)))
+
 PREBUILT-PROJECT-linux: \
 		$(INSTALLED_KERNEL_TARGET) \
 		$(INSTALLED_SYSTEM_MAP) \
 		$(INSTALLED_MODULES_TARGET) \
-		$(INSTALLED_KERNELFW_TARGET)
-		$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
-		$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
-		$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+		$(INSTALLED_KERNELFW_TARGET) \
+		$(INSTALLED_KERNEL_SCRIPTS) \
+
+	$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+	$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
+	$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
 
 else # use_prebuilt_kernel = true
 
@@ -206,6 +220,9 @@ $(INSTALLED_KERNEL_TARGET): $(kernel_prebuilt_image) | $(ACP)
 	$(copy-file-to-new-target)
 
 $(INSTALLED_SYSTEM_MAP): $(kernel_prebuilt_sysmap) | $(ACP)
+	$(copy-file-to-new-target)
+
+$(INSTALLED_KERNEL_SCRIPTS): $(kernel_prebuilt_scripts) | $(ACP)
 	$(copy-file-to-new-target)
 
 # Test if we have a kernel modules archive in the prebuilts area
@@ -241,6 +258,11 @@ use_prebuilt_kernel :=
 kernel: $(INSTALLED_KERNEL_TARGET) \
 		$(INSTALLED_SYSTEM_MAP) \
 		$(INSTALLED_MODULES_TARGET) \
-		$(INSTALLED_KERNELFW_TARGET)
+		$(INSTALLED_KERNELFW_TARGET) \
+		$(INSTALLED_KERNEL_SCRIPTS)
+
+host_scripts := $(foreach item,$(TARGET_KERNEL_SCRIPTS),$(HOST_OUT_EXECUTABLES)/$(notdir $(item)))
+$(host_scripts): $(INSTALLED_KERNEL_SCRIPTS)
+	$(hide) tar -C $(HOST_OUT_EXECUTABLES) -xzvf $(INSTALLED_KERNEL_SCRIPTS) $(notdir $@)
 
 endif # TARGET_NO_KERNEL
