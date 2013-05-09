@@ -509,6 +509,37 @@ def SbsignFile(input_name, output_name, key, password):
   cert_f.close()
 
 
+def SignKmodule(input_name, output_name, key, password):
+  """Sign the input_name binary with Linux sign-file, producing output_name.
+  Use the given key and password (the latter may be None if the key
+  does not have a password.
+  """
+
+  # sign-file wants a PEM formatted key and a DER certificate
+  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key))
+  key_f = tempfile.NamedTemporaryFile()
+  key_f.write(key_data)
+  key_f.flush()
+
+  cert_data = GetCertificateDER(ReadCertificateFile(key))
+  cert_f = tempfile.NamedTemporaryFile()
+  cert_f.write(cert_data)
+  cert_f.flush()
+
+  cmd = ["sign-file", "-v", "sha512", key_f.name, cert_f.name,
+          input_name, output_name]
+
+  p = Run(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+  if password is not None:
+    password += "\n"
+  p.communicate(password)
+  if p.returncode != 0:
+    raise ExternalError("sign-file failed: return code %s" % (p.returncode,))
+
+  key_f.close()
+  cert_f.close()
+
+
 def BinaryCertReplaceFile(input_name, output_name, key, password):
   """Sign the input_name binary with sbsign, producing output_name.
   Use the given key and password (the latter may be None if the key
