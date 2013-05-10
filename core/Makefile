@@ -1137,11 +1137,13 @@ endif
 $(BUILT_TARGET_FILES_PACKAGE): \
 		$(INSTALLED_BOOTIMAGE_TARGET) \
 		$(INSTALLED_RADIOIMAGE_TARGET) \
+		$(INSTALLED_EFI_BINARY_TARGET) \
 		$(INSTALLED_RECOVERYIMAGE_TARGET) \
 		$(INSTALLED_SYSTEMIMAGE) \
 		$(INSTALLED_USERDATAIMAGE_TARGET) \
 		$(INSTALLED_CACHEIMAGE_TARGET) \
 		$(INSTALLED_ANDROID_INFO_TXT_TARGET) \
+		$(DROIDBOOT_RAMDISK) \
 		$(built_ota_tools) \
 		$(APKCERTS_FILE) \
 		$(SBSIGN_CERTS_FILE) \
@@ -1191,9 +1193,32 @@ endif
 ifdef BOARD_KERNEL_PAGESIZE
 	$(hide) echo "$(BOARD_KERNEL_PAGESIZE)" > $(zip_root)/BOOT/pagesize
 endif
+ifeq ($(TARGET_STAGE_DROIDBOOT),true)
+	@# Components of the fastboot image
+	$(hide) mkdir -p $(zip_root)/FASTBOOT
+	$(hide) $(call package_files-copy-root, \
+		$(DROIDBOOT_ROOT_OUT),$(zip_root)/FASTBOOT/RAMDISK)
+ifdef INSTALLED_KERNEL_TARGET
+	$(hide) $(ACP) $(INSTALLED_KERNEL_TARGET) $(zip_root)/FASTBOOT/kernel
+endif
+ifdef INSTALLED_2NDBOOTLOADER_TARGET
+	$(hide) $(ACP) \
+		$(INSTALLED_2NDBOOTLOADER_TARGET) $(zip_root)/FASTBOOT/second
+endif
+	$(hide) echo "$(DROIDBOOT_CMDLINE)" > $(zip_root)/FASTBOOT/cmdline
+ifdef BOARD_KERNEL_BASE
+	$(hide) echo "$(BOARD_KERNEL_BASE)" > $(zip_root)/FASTBOOT/base
+endif
+ifdef BOARD_KERNEL_PAGESIZE
+	$(hide) echo "$(BOARD_KERNEL_PAGESIZE)" > $(zip_root)/FASTBOOT/pagesize
+endif
+endif # TARGET_STAGE_DROIDBOOT
 	$(hide) $(foreach t,$(INSTALLED_RADIOIMAGE_TARGET),\
 	            mkdir -p $(zip_root)/RADIO; \
 	            $(ACP) $(t) $(zip_root)/RADIO/$(notdir $(t));)
+	$(hide) $(foreach t,$(INSTALLED_EFI_BINARY_TARGET),\
+	            mkdir -p $(zip_root)/EFI; \
+	            $(ACP) $(t) $(zip_root)/EFI/$(notdir $(t));)
 	@# Contents of the system image
 	$(hide) $(call package_files-copy-root, \
 		$(SYSTEMIMAGE_SOURCE_DIR),$(zip_root)/SYSTEM)
@@ -1238,6 +1263,9 @@ endif
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="SYSTEM/" } /^SYSTEM\// {print "system/" $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/filesystem_config.txt
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="BOOT/RAMDISK/" } /^BOOT\/RAMDISK\// {print $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/boot_filesystem_config.txt
 	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="RECOVERY/RAMDISK/" } /^RECOVERY\/RAMDISK\// {print $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/recovery_filesystem_config.txt
+ifeq ($(TARGET_STAGE_DROIDBOOT),true)
+	$(hide) zipinfo -1 $@ | awk 'BEGIN { FS="FASTBOOT/RAMDISK/" } /^FASTBOOT\/RAMDISK\// {print $$2}' | $(HOST_OUT_EXECUTABLES)/fs_config > $(zip_root)/META/fastboot_filesystem_config.txt
+endif
 	$(hide) (cd $(zip_root) && zip -q $(ANDROID_BUILD_TOP)/$@ META/*filesystem_config.txt)
 
 
