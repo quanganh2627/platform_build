@@ -51,6 +51,8 @@ else # kernel prebuilt mandatory ingredients are not available
   $(info KERNEL: Kernel prebuilt image, scripts, and/or system map are not available. Will not use prebuilt kernels)
 endif
 
+TARGET_KERNEL_SCRIPTS := sign-file $(BOARD_KERNEL_SCRIPTS)
+
 ifneq ($(use_prebuilt_kernel),true)
 
 $(info Building kernel from source)
@@ -83,8 +85,6 @@ ifeq ($(TARGET_ARCH),arm)
 endif
 
 TARGET_KERNEL_SOURCE ?= kernel
-
-TARGET_KERNEL_SCRIPTS := sign-file $(BOARD_KERNEL_SCRIPTS)
 
 kernel_script_deps := $(foreach s,$(TARGET_KERNEL_SCRIPTS),$(TARGET_KERNEL_SOURCE)/scripts/$(s))
 kbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
