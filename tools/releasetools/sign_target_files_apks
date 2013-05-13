@@ -44,6 +44,17 @@ Usage:  sign_target_files_apks [flags] input_target_files output_target_files
       Re-sign all .ko files under /system/lib/modules inside the target
       files package with the provided key.
 
+  -B  (--binary_bootimages) <name,name,...>
+      Generate binary boot image which will end up in the generated
+      target-files-package under BOOTABLE_IMAGES. For each specified name,
+      It will look for the necessary files in an upper-case
+      subdirectory <NAME> and produce BOOTABLE_IMAGES/<name>.img.
+
+  -M  (--mkbootimg_args) <args>
+      Override mkbootimg_args in META/misc_info.txt; only useful if
+      -B is used. For secure boot scenarios this typically has key/signing
+      tool information.
+
   -k  (--key_mapping)  <src_key=dest_key>
       Add a mapping from the key name as specified in apkcerts.txt (the
       src_key) to the real key you wish to sign the package with
@@ -97,6 +108,7 @@ import re
 import subprocess
 import tempfile
 import zipfile
+import shutil
 
 import common
 
@@ -271,6 +283,33 @@ def BinaryCertReplace(data, cert_discard_data, cert_replace_prefix):
     raise ValueError("Old cert not found in binary. Cannot replace.");
 
   return output
+
+
+def GenerateBootimage(zipfile, misc_info, name):
+  tmpdir = tempfile.mkdtemp()
+
+  try:
+    name = name.lower()
+    dirname = name.upper()
+    print "generating " + name + " image..."
+
+    for f in zipfile.namelist():
+      if not (f.startswith(dirname) or f.startswith("META")):
+        continue
+      if f.endswith("/"):
+        os.makedirs(os.path.join(tmpdir, f))
+      else:
+        zipfile.extract(f, tmpdir)
+    data = common.BuildBootableImage(
+            os.path.join(tmpdir, dirname),
+            os.path.join(tmpdir, "META/" + name + "_filesystem_config.txt"),
+            misc_info)
+  finally:
+    shutil.rmtree(tmpdir)
+
+  if not data:
+    raise Exception("Unable to create bootable image for " + name)
+  zipfile.writestr("BOOTABLE_IMAGES/" + name + ".img", data)
 
 
 def SignFiles(input_tf_zip, output_tf_zip, apk_key_map,
@@ -481,6 +520,8 @@ def BuildKeyMap(misc_info, key_mapping_options):
 def main(argv):
 
   key_mapping_options = []
+  built_bootimages = []
+  mkbootimg_args = None
 
   def option_handler(o, a):
     if o in ("-e", "--extra_apks"):
@@ -506,6 +547,10 @@ def main(argv):
       key_mapping_options.append(a.split("=", 1))
     elif o in ("-o", "--replace_ota_keys"):
       OPTIONS.replace_ota_keys = True
+    elif o in ("-M", "--mkbootimg_args"):
+      mkbootimg_args = a
+    elif o in ("-B", "--binary_bootimages"):
+      built_bootimages.extend(a.split(","))
     elif o in ("-t", "--tag_changes"):
       new = []
       for i in a.split(","):
@@ -519,7 +564,7 @@ def main(argv):
     return True
 
   args = common.ParseOptions(argv, __doc__,
-                             extra_opts="e:b:r:d:k:m:ot:",
+                             extra_opts="e:b:r:d:k:m:ot:B:M:",
                              extra_long_opts=["extra_apks=",
                                               "extra_sbsign=",
                                               "extra_bin_cert_replace=",
@@ -527,7 +572,9 @@ def main(argv):
                                               "kmodule_key=",
                                               "key_mapping=",
                                               "replace_ota_keys",
-                                              "tag_changes="],
+                                              "tag_changes=",
+                                              "binary_bootimages=",
+                                              "mkbootimg_args="],
                              extra_option_handler=option_handler)
 
   if len(args) != 2:
@@ -538,6 +585,8 @@ def main(argv):
   output_zip = zipfile.ZipFile(args[1], "w")
 
   misc_info = common.LoadInfoDict(input_zip)
+  if mkbootimg_args:
+    misc_info["mkbootimg_args"] = mkbootimg_args
 
   BuildKeyMap(misc_info, key_mapping_options)
 
@@ -557,6 +606,9 @@ def main(argv):
 
   if OPTIONS.replace_ota_keys:
     ReplaceOtaKeys(input_zip, output_zip, misc_info)
+
+  for b in built_bootimages:
+    GenerateBootimage(output_zip, misc_info, b)
 
   input_zip.close()
   output_zip.close()
