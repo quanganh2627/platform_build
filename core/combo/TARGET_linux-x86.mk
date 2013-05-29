@@ -29,6 +29,8 @@ else
 TARGET_GCC_VERSION := $(TARGET_GCC_VERSION_EXP)
 endif
 
+TARGET_GCC_ARCH ?= x86_64
+
 # Include the arch-variant-specific configuration file.
 # Its role is to define various ARCH_X86_HAVE_XXX feature macros,
 # plus initial values for TARGET_GLOBAL_CFLAGS
@@ -40,11 +42,10 @@ endif
 
 include $(TARGET_ARCH_SPECIFIC_MAKEFILE)
 
-
 # You can set TARGET_TOOLS_PREFIX to get gcc from somewhere else
 ifeq ($(strip $(TARGET_TOOLS_PREFIX)),)
-TARGET_TOOLCHAIN_ROOT := prebuilts/gcc/$(HOST_PREBUILT_TAG)/x86/i686-linux-android-$(TARGET_GCC_VERSION)
-TARGET_TOOLS_PREFIX := $(TARGET_TOOLCHAIN_ROOT)/bin/i686-linux-android-
+TARGET_TOOLCHAIN_ROOT := prebuilts/gcc/$(HOST_PREBUILT_TAG)/x86/$(TARGET_GCC_ARCH)-linux-android-$(TARGET_GCC_VERSION)
+TARGET_TOOLS_PREFIX := $(TARGET_TOOLCHAIN_ROOT)/bin/$(TARGET_GCC_ARCH)-linux-android-
 endif
 
 ifeq ($(TARGET_KERNEL_ARCH),x86_64)
@@ -121,6 +122,9 @@ TARGET_GLOBAL_CPPFLAGS += \
 			-fno-use-cxa-atexit
 
 TARGET_GLOBAL_CFLAGS += $(arch_variant_cflags)
+
+# Adding explicit 32 bit flag to avoid gcc auto selection
+TARGET_GLOBAL_CFLAGS += -m32
 
 ifeq ($(ARCH_X86_HAVE_MMX),true)
     TARGET_GLOBAL_CFLAGS += -DUSE_MMX -mmmx
