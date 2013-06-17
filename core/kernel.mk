@@ -151,7 +151,7 @@ built_kernel_target := $(kbuild_output)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET
 # sources have changed from this context
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
-$(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(MINIGZIP) | $(ACP)
+$(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(MINIGZIP) $(BISON) | $(ACP)
 	$(if $(kernel_signed_mod_enabled),$(call copy-module-keys))
 	$(hide) rm -f $(kbuild_output)/.config.old
 	$(mk_kernel) oldnoconfig
