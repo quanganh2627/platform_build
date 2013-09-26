@@ -192,6 +192,7 @@ installclean_files := \
 	$(PRODUCT_OUT)/recovery \
 	$(PRODUCT_OUT)/root \
 	$(PRODUCT_OUT)/system \
+	$(PRODUCT_OUT)/userfastboot \
 	$(PRODUCT_OUT)/dex_bootjars \
 	$(PRODUCT_OUT)/obj/JAVA_LIBRARIES \
 	$(PRODUCT_OUT)/obj/FAKE \
