@@ -83,10 +83,10 @@ $(foreach t,$(1), \
    ) \
   $(if $(filter user,$(TARGET_BUILD_VARIANT)), \
     $(eval LOCAL_STRIP_MODULE := $(9))) \
-  $(if $(9), \
+  $(if $(10), \
     $(eval LOCAL_MODULE_PATH := $(10)) \
    ) \
-  $(if $(10), \
+  $(if $(11), \
     $(eval LOCAL_CERTIFICATE := $(strip $(11))) \
    ) \
   $(eval include $(BUILD_PREBUILT)) \
