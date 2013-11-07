@@ -1303,7 +1303,11 @@ function set_java_home() {
                 export JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/1.6/Home
                 ;;
             *)
-                export JAVA_HOME=/usr/lib/jvm/java-6-sun
+                if [ -d /usr/lib/jvm/java-6-oracle ]; then
+                    export JAVA_HOME=/usr/lib/jvm/java-6-oracle
+                else
+                    export JAVA_HOME=/usr/lib/jvm/java-6-sun
+                fi
                 ;;
         esac
     fi
