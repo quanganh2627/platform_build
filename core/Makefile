@@ -357,6 +357,7 @@ DEFAULT_KEY_CERT_PAIR := $(DEFAULT_SYSTEM_DEV_CERTIFICATE)
 $(call assemble-composite-file,init.rc,init.composite.rc)
 $(call assemble-composite-file,ueventd.rc,ueventd.composite.rc)
 $(call assemble-composite-file,init.recovery.rc,init.recovery.composite.rc)
+$(call assemble-composite-file,fstab,fstab.$(TARGET_PRODUCT))
 
 # -----------------------------------------------------------------
 
