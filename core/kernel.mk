@@ -118,14 +118,12 @@ kernel_signed_mod_enabled = $(shell grep ^CONFIG_MODULE_SIG=y $(kernel_config_fi
 kernel_genkey := $(kbuild_output)/x509.genkey
 kernel_private_key := $(kbuild_output)/signing_key.priv
 kernel_public_key := $(kbuild_output)/signing_key.x509
-kernel_key_deps := $(if kernel_signed_mod_enabled,$(kernel_genkey) $(kernel_private_key) $(kernel_public_key))
+kernel_key_deps := $(if kernel_signed_mod_enabled,$(kernel_private_key) $(kernel_public_key))
 
-$(kernel_public_key): $(TARGET_MODULE_KEY_PAIR).x509.pem
-	$(hide) mkdir -p $(dir $@)
+$(kernel_public_key): $(TARGET_MODULE_KEY_PAIR).x509.pem $(kernel_genkey)
 	$(hide) openssl x509 -inform PEM -outform DER -in $(TARGET_MODULE_KEY_PAIR).x509.pem -out $@
 
-$(kernel_private_key): $(TARGET_MODULE_KEY_PAIR).pk8
-	$(hide) mkdir -p $(dir $@)
+$(kernel_private_key): $(TARGET_MODULE_KEY_PAIR).pk8 $(kernel_genkey)
 	$(hide) openssl pkcs8 -nocrypt -inform DER -outform PEM -in $(TARGET_MODULE_KEY_PAIR).pk8 -out $@
 
 $(kernel_genkey): $(TARGET_MODULE_GENKEY) | $(ACP)
