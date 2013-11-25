@@ -90,6 +90,15 @@ HOST_DEPENDENCIES_ON_SHARED_LIBRARIES :=
 # They are escaped and quoted so can be passed safely to a bash command.
 ANDROID_RESOURCE_GENERATED_CLASSES := 'R.class' 'R$$*.class' 'Manifest.class' 'Manifest$$*.class'
 
+
+# Path to kernel module build directory
+PRODUCT_KERNEL_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
+
+# List of external kernel modules
+EXTERNAL_KERNEL_MODULES_TO_INSTALL :=
+
+
+
 ###########################################################
 ## Debugging; prints a variable list to stdout
 ###########################################################

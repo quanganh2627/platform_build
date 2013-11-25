@@ -82,14 +82,13 @@ endif
 TARGET_KERNEL_SOURCE ?= kernel
 
 kernel_script_deps := $(foreach s,$(TARGET_KERNEL_SCRIPTS),$(TARGET_KERNEL_SOURCE)/scripts/$(s))
-kbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 script_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kscripts
 modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 
 # Leading "+" gives child Make access to the jobserver.
 # Be sure to have CONFIG_KERNEL_MINIGZIP enabled or your
 # incremental OTA binary diffs will be very large.
-mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(kbuild_output) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
+mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(PRODUCT_KERNEL_OUTPUT) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
   ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
     ifneq ($(USE_CCACHE),)
@@ -115,9 +114,9 @@ kernel_fw_enabled = $(shell grep ^CONFIG_FIRMWARE_IN_KERNEL=y $(kernel_config_fi
 
 # signed kernel modules
 kernel_signed_mod_enabled = $(shell grep ^CONFIG_MODULE_SIG=y $(kernel_config_file))
-kernel_genkey := $(kbuild_output)/x509.genkey
-kernel_private_key := $(kbuild_output)/signing_key.priv
-kernel_public_key := $(kbuild_output)/signing_key.x509
+kernel_genkey := $(PRODUCT_KERNEL_OUTPUT)/x509.genkey
+kernel_private_key := $(PRODUCT_KERNEL_OUTPUT)/signing_key.priv
+kernel_public_key := $(PRODUCT_KERNEL_OUTPUT)/signing_key.x509
 kernel_key_deps := $(if kernel_signed_mod_enabled,$(kernel_private_key) $(kernel_public_key))
 
 $(kernel_public_key): $(TARGET_MODULE_KEY_PAIR).x509.pem $(kernel_genkey)
@@ -132,48 +131,46 @@ $(kernel_genkey): $(TARGET_MODULE_GENKEY) | $(ACP)
 # The actual .config that is in use during the build is derived from
 # a base $kernel_config_file, plus a a list of config overrides which
 # are processed in order.
-kernel_dotconfig_file := $(kbuild_output)/.config
+kernel_dotconfig_file := $(PRODUCT_KERNEL_OUTPUT)/.config
 $(kernel_dotconfig_file): $(kernel_config_file) $(TARGET_KERNEL_CONFIG_OVERRIDES) | $(ACP)
 	$(hide) mkdir -p $(dir $@)
 	build/tools/build-defconfig.py $^ > $@
 
-built_kernel_target := $(kbuild_output)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
+built_kernel_target := $(PRODUCT_KERNEL_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
 
 # Declared .PHONY to force a rebuild each time. We can't tell if the kernel
 # sources have changed from this context
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
 $(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(kernel_key_deps) $(MINIGZIP) | $(ACP)
-	$(hide) rm -f $(kbuild_output)/.config.old
+	$(hide) rm -f $(PRODUCT_KERNEL_OUTPUT)/.config.old
 	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(kernel_mod_enabled),modules)
 	$(hide) $(ACP) -fp $(built_kernel_target) $@
 
 $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
-	$(hide) $(ACP) $(kbuild_output)/System.map $@
+	$(hide) $(ACP) $(PRODUCT_KERNEL_OUTPUT)/System.map $@
 
-# FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
-# source into an intermediate directory and compile it there, preserving
-# timestamps so code is only rebuilt if it changes.
 # Extra newline intentional to prevent calling foreach from concatenating
 # into a single line
 # FIXME: Need to extend this so that all external modules are not built by
 # default, need to define them each as an Android module and include them as
 # needed in PRODUCT_PACKAGES
 define make-ext-module
-	$(hide) mkdir -p $(kbuild_output)/extmods/$(1)
-	$(hide) $(ACP) -rtf $(1)/* $(kbuild_output)/extmods/$(1)
-	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules
-	$(mk_kernel) M=$(kbuild_output)/extmods/$(1) INSTALL_MOD_PATH=$(2) modules_install
+	$(mk_kernel) M=$(1) INSTALL_MOD_PATH=$(2) modules_install
 
 endef
 
 define make-modules
 	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
-	$(foreach item,$(EXTERNAL_KERNEL_MODULES),$(call make-ext-module,$(item),$(1)))
+	$(foreach item,$(dir $(EXTERNAL_KERNEL_MODULES_TO_INSTALL)),$(call make-ext-module,$(item),$(1)))
 	$(hide) rm -f $(1)/lib/modules/*/{build,source}
 	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
 endef
+
+ifneq ($(kernel_mod_enabled),)
+$(INSTALLED_MODULES_TARGET): $(EXTERNAL_KERNEL_MODULES_TO_INSTALL)
+endif
 
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
 	$(hide) rm -rf $(modbuild_output)/lib/modules

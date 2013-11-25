@@ -81,6 +81,7 @@ BUILD_HOST_NATIVE_TEST := $(BUILD_SYSTEM)/host_native_test.mk
 BUILD_NOTICE_FILE := $(BUILD_SYSTEM)/notice_files.mk
 BUILD_PREBUILT_BUNDLE_CREATE := $(BUILD_SYSTEM)/prebuilt_bundle_create.mk
 BUILD_PREBUILT_BUNDLE := $(BUILD_SYSTEM)/prebuilt_bundle.mk
+BUILD_EXTERNAL_KERNEL_MODULE := $(BUILD_SYSTEM)/build_lkm.mk
 
 -include cts/build/config.mk
 
