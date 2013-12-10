@@ -516,6 +516,73 @@ INSTALLED_BOOTIMAGE_TARGET := $(INSTALLED_RAMDISK_TARGET)
 endif
 
 # -----------------------------------------------------------------
+
+# Some projects with ample disk space may simply want to post the
+# source code to their GPL components directly in the /system partition
+# such that users can access it with a file explorer app.
+ifeq ($(TARGET_STAGE_GPL_SOURCES),true)
+
+tarball_intermediates := $(call intermediates-dir-for,PACKAGING,gpl-tarballs)
+
+# We can't know whether all the files being tarred up have changed in between
+# builds, so the rule to create the tarball is declared PHONY so that it is
+# rebuilt every build. However we can at least cause targets that depend on
+# this to not be updated unless there was an actual change; we create the
+# tarball in an intermediate location and use the 'cmp' tool to only update
+# the real target if it is different.
+#
+# Use minigzip to compute efficient OTA diffs. The use of dd is a trick to
+# zero out the gzip MTIME field, otherwise the tarballs are slightly different
+# with each run.
+define tarball-template
+tb := $$(tarball_intermediates)/$$(notdir $(1))
+.PHONY: $$(tb)
+$$(tb): $(MINIGZIP)
+	@echo Archiving $(2) to $$@
+	$(hide) mkdir -p $$(dir $$@)
+	$(hide) tar -c --exclude ".git*" $(2) | $(MINIGZIP) -c > $$@
+	$(hide) dd if=/dev/zero of=$$@ bs=4 count=1 conv=notrunc seek=1 status=noxfer
+
+$(1): $$(tb) | $(ACP)
+	$(hide) mkdir -p $$(dir $$@)
+	$(hide) cmp --quiet $$< $$@ || { $(ACP) -f $$< $$@ && echo "Source code changed, updating $$@"; }
+tb :=
+endef
+
+# Create a sorted list of directories containing module license files,
+# and then build up a new list, adding directories whose parent is not already
+# in the new list. We do this by comparing the current entry against
+# the last one in our filtered list, since something like A/B/C would
+# immediately be preceded by A/B/ if it was in the list.
+filtered_license_dirs :=
+$(foreach ldir,$(sort $(foreach lfile,$(ALL_GPL_MODULE_LICENSE_FILES),$(dir $(lfile)))), \
+    $(eval _searchterm := $(lastword $(filtered_license_dirs))) \
+    $(if $(_searchterm), \
+        $(if $(filter $(_searchterm)%,$(ldir)),, \
+            $(eval filtered_license_dirs += $(ldir)) \
+        ) \
+    , \
+        $(eval filtered_license_dirs += $(ldir)) \
+    ) \
+    $(eval _searchterm :=) \
+)
+
+# Create tarballs from the filtered license directories.
+# We transform the path into a filename with a sed expression
+# that replaces all slashes with dashes and drops the last
+# character (which is always a dash since we started with a
+# list of directories)
+# XXX can we combine into a single sed expression?
+$(foreach _dir,$(filtered_license_dirs), \
+    $(eval _tb := $(TARGET_OUT)/src/$(shell echo $(_dir) | sed 's|/|-|g' | sed 's/\(.*\)./\1/').tar.gz) \
+    $(eval $(call tarball-template,$(_tb),$(_dir))) \
+    $(eval ALL_DEFAULT_INSTALLED_MODULES += $(_tb)) \
+    $(eval _tb :=) \
+)
+
+endif # TARGET_STAGE_GPL_SOURCES = true
+
+# -----------------------------------------------------------------
 # NOTICE files
 #
 # We are required to publish the licenses for all code under BSD, GPL and
