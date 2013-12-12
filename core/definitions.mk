@@ -96,7 +96,7 @@ PRODUCT_KERNEL_OUTPUT := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernel
 
 # List of external kernel modules
 EXTERNAL_KERNEL_MODULES_TO_INSTALL :=
-
+EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL :=
 
 
 ###########################################################

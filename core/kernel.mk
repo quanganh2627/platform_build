@@ -85,10 +85,13 @@ kernel_script_deps := $(foreach s,$(TARGET_KERNEL_SCRIPTS),$(TARGET_KERNEL_SOURC
 script_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kscripts
 modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 
+
+
+
 # Leading "+" gives child Make access to the jobserver.
 # Be sure to have CONFIG_KERNEL_MINIGZIP enabled or your
 # incremental OTA binary diffs will be very large.
-mk_kernel := + $(hide) $(MAKE) -C $(TARGET_KERNEL_SOURCE)  O=$(PRODUCT_KERNEL_OUTPUT) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
+mk_kernel_base := + $(hide) $(MAKE) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
   ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
     ifneq ($(USE_CCACHE),)
@@ -98,6 +101,8 @@ ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
     endif
   endif
 endif
+
+mk_kernel = $(mk_kernel_base) -C $(TARGET_KERNEL_SOURCE)  O=$(PRODUCT_KERNEL_OUTPUT)
 
 # If there's a file in the arch-specific configs directory that matches
 # what's in $(TARGET_KERNEL_CONFIG), use that. Otherwise, use $(TARGET_KERNEL_CONFIG)
@@ -135,6 +140,8 @@ kernel_dotconfig_file := $(PRODUCT_KERNEL_OUTPUT)/.config
 $(kernel_dotconfig_file): $(kernel_config_file) $(TARGET_KERNEL_CONFIG_OVERRIDES) | $(ACP)
 	$(hide) mkdir -p $(dir $@)
 	build/tools/build-defconfig.py $^ > $@
+	$(mk_kernel) oldnoconfig
+	$(hide) rm -f $@.old
 
 built_kernel_target := $(PRODUCT_KERNEL_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNEL_TARGET)
 
@@ -143,8 +150,6 @@ built_kernel_target := $(PRODUCT_KERNEL_OUTPUT)/arch/$(TARGET_ARCH)/boot/$(KERNE
 .PHONY : $(INSTALLED_KERNEL_TARGET)
 
 $(INSTALLED_KERNEL_TARGET): $(kernel_dotconfig_file) $(kernel_key_deps) $(MINIGZIP) | $(ACP)
-	$(hide) rm -f $(PRODUCT_KERNEL_OUTPUT)/.config.old
-	$(mk_kernel) oldnoconfig
 	$(mk_kernel) $(KERNEL_TARGET) $(if $(kernel_mod_enabled),modules)
 	$(hide) $(ACP) -fp $(built_kernel_target) $@
 
@@ -161,16 +166,31 @@ define make-ext-module
 
 endef
 
+# $1: module name
+# $2: module install directory; common to all modules
+define install-compat-module
+	@echo Installing kernel compat module $(1) in $(2)/
+	$(hide) $(call COMPAT_PRIVATE_$(1)_PREINSTALL,$(2),$(COMPAT_PRIVATE_$(1)_SRC_PATH))
+	$(mk_kernel) M=$(COMPAT_PRIVATE_$(1)_SRC_PATH) INSTALL_MOD_PATH=$(2) INSTALL_MOD_DIR=updates modules_install
+	$(hide) $(call COMPAT_PRIVATE_$(1)_POSTINSTALL,$(2),$(COMPAT_PRIVATE_$(1)_SRC_PATH))
+
+endef
+
 define make-modules
 	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
 	$(foreach item,$(dir $(EXTERNAL_KERNEL_MODULES_TO_INSTALL)),$(call make-ext-module,$(item),$(1)))
-	+ $(if $(EXTRA_KERNEL_MODULES), $(hide) $(MAKE) $(EXTRA_KERNEL_MODULES))
+	$(foreach item,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(call install-compat-module,$(item),$(1)))
 	$(hide) rm -f $(1)/lib/modules/*/{build,source}
 	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
 endef
 
+# Testing a few parallel builds indicate that the kernel needs to be built before building
+# compat modules.
+$(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel): $(INSTALLED_KERNEL_TARGET)
+
 ifneq ($(kernel_mod_enabled),)
-$(INSTALLED_MODULES_TARGET): $(EXTERNAL_KERNEL_MODULES_TO_INSTALL)
+$(INSTALLED_MODULES_TARGET): $(EXTERNAL_KERNEL_MODULES_TO_INSTALL) 
+$(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel)
 endif
 
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)
