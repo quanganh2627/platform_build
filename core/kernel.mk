@@ -15,6 +15,10 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 # it in out/dist/
 INSTALLED_KERNEL_ARCHIVE := $(OUT)/kernel-archive.zip
 
+# Tarball conatining source code of currently used Linux sources for GPL
+# license compliance
+INSTALLED_KERNEL_SOURCE_TARBALL := $(call intermediates-dir-for,PACKAGING,kernel)/kernelsrc.tar.gz
+
 # use_prebuilt_kernel is the variable used for determining if we will be using
 # prebuilt kernel components or build kernel from source, in the code that
 # follows below.
@@ -84,9 +88,6 @@ TARGET_KERNEL_SOURCE ?= kernel
 kernel_script_deps := $(foreach s,$(TARGET_KERNEL_SCRIPTS),$(TARGET_KERNEL_SOURCE)/scripts/$(s))
 script_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kscripts
 modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
-
-
-
 
 # Leading "+" gives child Make access to the jobserver.
 # Be sure to have CONFIG_KERNEL_MINIGZIP enabled or your
@@ -222,12 +223,34 @@ PREBUILT-PROJECT-linux: \
 	$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
 	$(hide) $(ACP) -fp $^ out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
 
+# Declared .PHONY to force a rebuild each time. We can't tell if the kernel
+# sources have changed from this context. So we do this in 2 stages; the second
+# stage doesn't actually touch anything unless there was a real change in the
+# archive; although we have to build the tarball every time, this prevents rules
+# that depend on this from being needlessly rebuilt
+.PHONY: $(INSTALLED_KERNEL_SOURCE_TARBALL).temp
+
+# minigzip used to compute efficient OTA diffs, dd zeroes out the gzip MTIME
+# field.
+$(INSTALLED_KERNEL_SOURCE_TARBALL).temp: $(MINIGZIP)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) tar -c --exclude ".git*" $(TARGET_KERNEL_SOURCE) \
+				         $(TARGET_EXTRA_KERNEL_SOURCE) \
+					 $(foreach item,$(ALL_GPL_KERNEL_MODULE_LICENSE_FILES),$(dir $(item))) \
+				| $(MINIGZIP) -c > $@
+	$(hide) dd if=/dev/zero of=$@ bs=4 count=1 conv=notrunc seek=1 status=noxfer
+
+$(INSTALLED_KERNEL_SOURCE_TARBALL): $(INSTALLED_KERNEL_SOURCE_TARBALL).temp | $(ACP)
+	$(hide) mkdir -p $(dir $@)
+	$(hide) cmp --quiet $< $@ || { $(ACP) -f $< $@ && echo "Source code changed, updating $@"; }
+
 $(INSTALLED_KERNEL_ARCHIVE):  \
 			$(INSTALLED_KERNEL_TARGET) \
 			$(INSTALLED_SYSTEM_MAP) \
 			$(INSTALLED_MODULES_TARGET) \
 			$(INSTALLED_KERNELFW_TARGET) \
-			$(INSTALLED_KERNEL_SCRIPTS)
+			$(INSTALLED_KERNEL_SCRIPTS) \
+			$(INSTALLED_KERNEL_SOURCE_TARBALL)
 	$(hide) zip -qj $@ $^
 
 else # use_prebuilt_kernel = true
@@ -254,6 +277,9 @@ $(INSTALLED_MODULES_TARGET): $(kernel_prebuilt_archive)
 $(INSTALLED_KERNELFW_TARGET): $(kernel_prebuilt_archive)
 	$(extract-from-zip)
 
+$(INSTALLED_KERNEL_SOURCE_TARBALL): $(kernel_prebuilt_archive)
+	$(extract-from-zip)
+
 $(INSTALLED_KERNEL_ARCHIVE): $(kernel_prebuilt_archive) | $(ACP)
 	$(copy-file-to-new-target)
 
@@ -275,5 +301,8 @@ $(host_scripts): $(INSTALLED_KERNEL_SCRIPTS)
 kernel: $(INSTALLED_KERNEL_ARCHIVE)
 
 $(call dist-for-goals,droidcore,$(INSTALLED_KERNEL_ARCHIVE):$(TARGET_PRODUCT)-kernel-archive-$(FILE_NAME_TAG).zip)
+
+# For including sources in gpl_source_tgz
+ALL_EXTRA_SOURCE_TARBALLS += $(INSTALLED_KERNEL_SOURCE_TARBALL)
 
 endif # TARGET_NO_KERNEL

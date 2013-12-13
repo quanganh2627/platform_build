@@ -537,7 +537,7 @@ tarball_intermediates := $(call intermediates-dir-for,PACKAGING,gpl-tarballs)
 define tarball-template
 tb := $$(tarball_intermediates)/$$(notdir $(1))
 .PHONY: $$(tb)
-$$(tb): $(MINIGZIP)
+$$(tb): | $(MINIGZIP)
 	@echo Archiving $(2) to $$@
 	$(hide) mkdir -p $$(dir $$@)
 	$(hide) tar -c --exclude ".git*" $(2) | $(MINIGZIP) -c > $$@
@@ -578,6 +578,18 @@ $(foreach _dir,$(filtered_license_dirs), \
     $(eval $(call tarball-template,$(_tb),$(_dir))) \
     $(eval ALL_DEFAULT_INSTALLED_MODULES += $(_tb)) \
     $(eval _tb :=) \
+)
+
+define copy-tarball-template
+$(1): $(2) | $(ACP)
+	$$(copy-file-to-target)
+endef
+
+$(foreach tarball,$(ALL_EXTRA_SOURCE_TARBALLS), \
+    $(eval _dest := $(TARGET_OUT)/src/$(notdir $(tarball))) \
+    $(eval $(call copy-tarball-template,$(_dest),$(tarball))) \
+    $(eval ALL_DEFAULT_INSTALLED_MODULES += $(_dest)) \
+    $(eval _dest :=) \
 )
 
 endif # TARGET_STAGE_GPL_SOURCES = true

@@ -99,3 +99,10 @@ EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL += $(LOCAL_MODULE)
 # target-specific make variables, and instead must create
 # a globally unique name.
 COMPAT_PRIVATE_$(LOCAL_MODULE)_SRC_PATH := $(compat_mod_dir)
+
+gpl_license_file := $(call find-parent-file,$(LOCAL_PATH),MODULE_LICENSE*_GPL* MODULE_LICENSE*_MPL* MODULE_LICENSE*_LGPL*)
+ifneq ($(gpl_license_file),)
+  LOCAL_MODULE_TAGS += gnu
+  ALL_GPL_KERNEL_MODULE_LICENSE_FILES := $(sort $(ALL_GPL_KERNEL_MODULE_LICENSE_FILES) $(gpl_license_file))
+endif
+

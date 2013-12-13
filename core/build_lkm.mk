@@ -64,4 +64,10 @@ $(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE
 # install modifies common files.
 EXTERNAL_KERNEL_MODULES_TO_INSTALL += $(ext_mod_file)
 
+gpl_license_file := $(call find-parent-file,$(LOCAL_PATH),MODULE_LICENSE*_GPL* MODULE_LICENSE*_MPL* MODULE_LICENSE*_LGPL*)
+ifneq ($(gpl_license_file),)
+  LOCAL_MODULE_TAGS += gnu
+  ALL_GPL_KERNEL_MODULE_LICENSE_FILES := $(sort $(ALL_GPL_KERNEL_MODULE_LICENSE_FILES) $(gpl_license_file))
+endif
+
 endif
