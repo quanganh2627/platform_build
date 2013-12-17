@@ -142,7 +142,7 @@ $(kernel_genkey): $(TARGET_MODULE_GENKEY) | $(ACP)
 kernel_dotconfig_file := $(PRODUCT_KERNEL_OUTPUT)/.config
 $(kernel_dotconfig_file): $(kernel_config_file) $(TARGET_KERNEL_CONFIG_OVERRIDES) | $(ACP)
 	$(hide) mkdir -p $(dir $@)
-	build/tools/build-defconfig.py $^ > $@
+	$(hide) build/tools/build-defconfig.py $^ > $@
 	$(mk_kernel) oldnoconfig
 	$(hide) rm -f $@.old
 
@@ -173,14 +173,17 @@ endef
 # $2: module install directory
 define install-compat-module
 	@echo Installing kernel compat module $(1) in $(2)/
-	$(hide) $(call COMPAT_PRIVATE_$(1)_PREINSTALL,$(2),$(COMPAT_PRIVATE_$(1)_SRC_PATH))
-	$(mk_kernel) M=$(COMPAT_PRIVATE_$(1)_SRC_PATH) INSTALL_MOD_PATH=$(2) INSTALL_MOD_DIR=updates modules_install
-	$(hide) $(call COMPAT_PRIVATE_$(1)_POSTINSTALL,$(2),$(COMPAT_PRIVATE_$(1)_SRC_PATH))
+	$(hide) $(call COMPAT_PRIVATE_$(1)_PREINSTALL,$(2),$(dir $(ALL_MODULES.$(1).BUILT)))
+	$(mk_kernel) M=$(CURDIR)/$(dir $(strip $(ALL_MODULES.$(1).BUILT))) INSTALL_MOD_PATH=$(2) INSTALL_MOD_DIR=updates modules_install
+	$(hide) $(call COMPAT_PRIVATE_$(1)_POSTINSTALL,$(2),$(dir $(ALL_MODULES.$(1).BUILT)))
 
 endef
 
 # Filter the list of external modules, to remove those that are not in PRODUCT_PACKAGES
 EXTERNAL_KERNEL_MODULES_TO_INSTALL := $(filter $(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(product_MODULES) $(foreach t,$(tags_to_install),$(ALL_MODULE_NAME_TAGS.$(t))))
+
+# Filter the list of compat modules to remove those that are not in PRODUCT_PACKAGES
+EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL := $(filter $(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(product_MODULES))
 
 # $1: module install directory; common to all modules
 define make-modules
@@ -191,13 +194,10 @@ define make-modules
 	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
 endef
 
-# Testing a few parallel builds indicate that the kernel needs to be built before building
-# compat modules.
-$(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel): $(INSTALLED_KERNEL_TARGET)
 
 ifneq ($(kernel_mod_enabled),)
 $(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(ALL_MODULES.$(m).BUILT))
-$(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel)
+$(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(ALL_MODULES.$(m).BUILT))
 endif
 
 $(INSTALLED_MODULES_TARGET): $(INSTALLED_KERNEL_TARGET) $(MINIGZIP) | $(ACP)

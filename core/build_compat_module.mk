@@ -56,11 +56,26 @@
 #    Two parameters may be used inside the commands
 #    $(1): Path to where module is installed
 #    $(2): Path to where the module is built from 
+#
+# To include the module in the build, the module name must also
+# be added to PRODUCT_PACKAGES in one of the product definition
+# files (BoardConfig.mk, product.mk, etc).
 
 
-compat_mod_dir := $(PRODUCT_KERNEL_OUTPUT)/compatmods/$(LOCAL_PATH)
-compat_mod_file := $(compat_mod_dir)/.sentinel
-compat_cfg_file := $(compat_mod_dir)/.config
+LOCAL_MODULE_CLASS := COMPAT_KERNEL_MODULE
+# Prevent Android from defining install rules. For compat modules
+# the installation is handled by the Linux build system
+LOCAL_UNINSTALLABLE_MODULE := true
+# Ensure that LOCAL_BUILT_MODULE defines a file, not a directory.
+# This is needed to be able to execute 'make <module>'
+# from the command line, as base_rules.mk defines a dependency
+# between LOCAL_MODULE and LOCAL_BUILT_MODULE.
+LOCAL_BUILT_MODULE_STEM := .sentinel
+
+include build/core/base_rules.mk
+
+compat_mod_file := $(LOCAL_BUILT_MODULE)
+compat_cfg_file := $(dir $(LOCAL_BUILT_MODULE))/.config
 
 # The compat module .config is based on the kernel config.
 # The .config file is only updated if actually changed. This is done to
@@ -83,6 +98,9 @@ $(compat_cfg_file): $(PRODUCT_KERNEL_OUTPUT)/.config FORCE | $(ACP)
 # Define build of this module here, separately,
 # to ensure it gets the appropriate config file.
 $(compat_mod_file): PRIVATE_MODULE := $(LOCAL_MODULE)
+# Testing a few parallel builds indicate that the kernel needs to be built before building
+# compat modules.
+$(compat_mod_file): $(INSTALLED_KERNEL_TARGET)
 $(compat_mod_file): $(compat_cfg_file) FORCE
 	@echo Building kernel compat module $(PRIVATE_MODULE) in $(@D)
 	$(mk_kernel_base) -C $(@D) KLIB_BUILD=$(PRODUCT_KERNEL_OUTPUT)
@@ -99,14 +117,9 @@ build_$(LOCAL_MODULE): $(compat_mod_file)
 # install modifies common files.
 EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL += $(LOCAL_MODULE)
 
-# As all modules are installed in one for loop, we cannot use 
-# target-specific make variables, and instead must create
-# a globally unique name.
-COMPAT_PRIVATE_$(LOCAL_MODULE)_SRC_PATH := $(compat_mod_dir)
 
 gpl_license_file := $(call find-parent-file,$(LOCAL_PATH),MODULE_LICENSE*_GPL* MODULE_LICENSE*_MPL* MODULE_LICENSE*_LGPL*)
 ifneq ($(gpl_license_file),)
   LOCAL_MODULE_TAGS += gnu
   ALL_GPL_KERNEL_MODULE_LICENSE_FILES := $(sort $(ALL_GPL_KERNEL_MODULE_LICENSE_FILES) $(gpl_license_file))
 endif
-
