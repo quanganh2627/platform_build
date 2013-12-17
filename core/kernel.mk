@@ -295,6 +295,7 @@ endif # use_prebuilt_kernel
 use_prebuilt_kernel :=
 host_scripts := $(foreach item,$(TARGET_KERNEL_SCRIPTS),$(HOST_OUT_EXECUTABLES)/$(notdir $(item)))
 $(host_scripts): $(INSTALLED_KERNEL_SCRIPTS)
+	$(hide) mkdir -p $(HOST_OUT_EXECUTABLES)
 	$(hide) tar -C $(HOST_OUT_EXECUTABLES) -xzvf $(INSTALLED_KERNEL_SCRIPTS) $(notdir $@)
 
 .PHONY: kernel
