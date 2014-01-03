@@ -156,12 +156,6 @@ $(if,,\
 )
 endef
 
-
-define get-mixin-basedir
-$(MIXIN_GROUP.$(strip $(1)).dir)
-endef
-
-
 # Ensure that for all mixins that one of them has been explicitly selected.
 # If no selection was made and a 'default' option exists, inherit that.
 define check-mixin-selections
@@ -206,7 +200,7 @@ endef
 # $(2) Filename of generated output file to be placed in the ramdisk root
 define assemble-composite-file
 $(if,, \
-    $(eval _frags := $(foreach group,$(MIXIN_GROUPS_SELECTED),$(wildcard $(call get-mixin-basedir, $(group))/$(1)))) \
+    $(eval _frags := $(foreach group,$(MIXIN_GROUPS_SELECTED),$(wildcard $(MIXIN_GROUP.$(group).dir)/$(1)))) \
     $(eval _filename := $(TARGET_ROOT_OUT)/$(2)) \
     $(if $(_frags), \
         $(eval $(call composite-template,$(_filename),$(_frags))) \
