@@ -63,17 +63,21 @@ compat_mod_file := $(compat_mod_dir)/.sentinel
 compat_cfg_file := $(compat_mod_dir)/.config
 
 # The compat module .config is based on the kernel config.
-# Note that if you change to use a different defconfig file,
-# the build system will not realize the .config file needs
-# to be rebuilt.
+# The .config file is only updated if actually changed. This is done to
+# prevent backport-include/backport/autoconf.h from being rebuilt each time,
+# as that will force a rebuild of all files in the compat module.
+# (The normal kernel behavior is to filter out dependencies to autoconf.h and instead
+#  use dependencies to files created in include/config, one for each config option.
+#  Unfortunately this does not work for the compat module's version of autoconf.h.)
 $(compat_cfg_file): PRIVATE_KERNEL_DEFCONFIG := $(LOCAL_KERNEL_COMPAT_DEFCONFIG)
 $(compat_cfg_file): PRIVATE_MODULE := $(LOCAL_MODULE)
 $(compat_cfg_file): private_src_dir:=$(LOCAL_PATH)
-$(compat_cfg_file): $(PRODUCT_KERNEL_OUTPUT)/.config FORCE
+$(compat_cfg_file): $(PRODUCT_KERNEL_OUTPUT)/.config FORCE | $(ACP)
 	@echo Configuring kernel compat module $(PRIVATE_MODULE) with defconfig-$(PRIVATE_KERNEL_DEFCONFIG)
 	$(hide) mkdir -p $(@D)
 	$(hide) cp -ru $(private_src_dir)/. $(@D)/
-	$(mk_kernel_base) -C $(@D) KLIB_BUILD=$(PRODUCT_KERNEL_OUTPUT) defconfig-$(PRIVATE_KERNEL_DEFCONFIG)
+	$(mk_kernel_base) -C $(@D) KLIB_BUILD=$(PRODUCT_KERNEL_OUTPUT) KCONFIG_CONFIG=$(@F).tmp defconfig-$(PRIVATE_KERNEL_DEFCONFIG)
+	$(hide) cmp --quiet $@.tmp $@ || { $(ACP) -f $@.tmp $@ && echo ".config changed, updating."; }
 
 
 # Define build of this module here, separately,
