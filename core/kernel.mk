@@ -161,16 +161,16 @@ $(INSTALLED_SYSTEM_MAP): $(INSTALLED_KERNEL_TARGET) | $(ACP)
 
 # Extra newline intentional to prevent calling foreach from concatenating
 # into a single line
-# FIXME: Need to extend this so that all external modules are not built by
-# default, need to define them each as an Android module and include them as
-# needed in PRODUCT_PACKAGES
-define make-ext-module
-	$(mk_kernel) M=$(1) INSTALL_MOD_PATH=$(2) modules_install
+# $1: module name
+# $2: module install directory
+define install-ext-module
+	@echo Installing external kernel module $(1) in $(2)
+	$(mk_kernel) M=$(CURDIR)/$(dir $(strip $(ALL_MODULES.$(1).BUILT))) INSTALL_MOD_PATH=$(2) modules_install
 
 endef
 
 # $1: module name
-# $2: module install directory; common to all modules
+# $2: module install directory
 define install-compat-module
 	@echo Installing kernel compat module $(1) in $(2)/
 	$(hide) $(call COMPAT_PRIVATE_$(1)_PREINSTALL,$(2),$(COMPAT_PRIVATE_$(1)_SRC_PATH))
@@ -179,9 +179,13 @@ define install-compat-module
 
 endef
 
+# Filter the list of external modules, to remove those that are not in PRODUCT_PACKAGES
+EXTERNAL_KERNEL_MODULES_TO_INSTALL := $(filter $(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(product_MODULES))
+
+# $1: module install directory; common to all modules
 define make-modules
 	$(mk_kernel) INSTALL_MOD_PATH=$(1) modules_install
-	$(foreach item,$(dir $(EXTERNAL_KERNEL_MODULES_TO_INSTALL)),$(call make-ext-module,$(item),$(1)))
+	$(foreach item,$(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(call install-ext-module,$(item),$(1)))
 	$(foreach item,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(call install-compat-module,$(item),$(1)))
 	$(hide) rm -f $(1)/lib/modules/*/{build,source}
 	$(hide) cd $(1)/lib/modules && find -type f -print0 | xargs -t -0 -I{} mv {} .
@@ -192,7 +196,7 @@ endef
 $(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel): $(INSTALLED_KERNEL_TARGET)
 
 ifneq ($(kernel_mod_enabled),)
-$(INSTALLED_MODULES_TARGET): $(EXTERNAL_KERNEL_MODULES_TO_INSTALL) 
+$(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(ALL_MODULES.$(m).BUILT))
 $(INSTALLED_MODULES_TARGET): $(foreach m,$(EXTERNAL_KERNEL_COMPAT_MODULES_TO_INSTALL),$(COMPAT_PRIVATE_$(m)_SRC_PATH)/.sentinel)
 endif
 

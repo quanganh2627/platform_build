@@ -31,8 +31,14 @@ $(LOCAL_MODULE)_EXCLUSION_GUARD := true
 PRIVATE_KCPPFLAGS :=
 PRIVATE_CONFIG_FLAGS :=
 
-ext_mod_dir := $(PRODUCT_KERNEL_OUTPUT)/extmods/$(LOCAL_MODULE)
-ext_mod_file := $(ext_mod_dir)/.sentinel
+LOCAL_MODULE_CLASS := EXTERNAL_KERNEL_MODULE
+# Prevent build system from defining standard install rules
+LOCAL_UNINSTALLABLE_MODULE := true
+LOCAL_BUILT_MODULE_STEM := .sentinel
+
+include build/core/base_rules.mk
+
+ext_mod_file := $(LOCAL_BUILT_MODULE)
 
 ifneq ($(firstword $(LOCAL_KCONFIG_OVERRIDE_FILES)),)
 # As the module has some extra CONFIG parameters, these must
@@ -57,8 +63,6 @@ $(ext_mod_file): PRIVATE_CONFIG_FLAGS := $(PRIVATE_CONFIG_FLAGS)
 # Make the extra CONFIG parameters available to the C source code
 PRIVATE_KCPPFLAGS += $(addprefix -D,$(PRIVATE_CONFIG_FLAGS))
 
-else
-$(ext_mod_file): PRIVATE_CONFIG_PATH :=
 endif
 
 ifneq ($(LOCAL_C_INCLUDES),)
@@ -76,15 +80,16 @@ endif
 # timestamps so code is only rebuilt if it changes.
 $(ext_mod_file): private_src_dir:=$(LOCAL_MODULE_PATH)
 $(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE
+	@echo Building external kernel module in $(@D)
 	$(hide) mkdir -p $(@D)
 	$(hide) $(ACP) -rtf $(private_src_dir)/* $(@D)
-	$(mk_kernel) M=$(@D) $(PRIVATE_KERNEL_MODULE_CPPFLAGS) $(PRIVATE_CONFIG_FLAGS) modules
+	$(mk_kernel) M=$(CURDIR)/$(@D) $(PRIVATE_KERNEL_MODULE_CPPFLAGS) $(PRIVATE_CONFIG_FLAGS) modules
 	$(hide) touch $@
 
 # Add module to list of modules to install. This must
 # be done in one place in a for loop, as the
 # install modifies common files.
-EXTERNAL_KERNEL_MODULES_TO_INSTALL += $(ext_mod_file)
+EXTERNAL_KERNEL_MODULES_TO_INSTALL += $(LOCAL_MODULE)
 
 gpl_license_file := $(call find-parent-file,$(LOCAL_PATH),MODULE_LICENSE*_GPL* MODULE_LICENSE*_MPL* MODULE_LICENSE*_LGPL*)
 ifneq ($(gpl_license_file),)
