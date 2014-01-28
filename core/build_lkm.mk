@@ -17,6 +17,8 @@
 
 # Defines how to build a Linux external kernel module
 
+LOCAL_MODULE := $(strip $(LOCAL_MODULE))
+
 # The source tree currently has at least one kernel tree which contains
 # symlinks to external drivers. This leads to the Android.mk
 # files in those directories being read more than once. Thus an
@@ -24,7 +26,7 @@
 ifeq ($($(LOCAL_MODULE)_EXCLUSION_GUARD),)
 $(LOCAL_MODULE)_EXCLUSION_GUARD := true
 
-ext_mod_dir := $(PRODUCT_KERNEL_OUTPUT)/extmods/$(LOCAL_MODULE_PATH)
+ext_mod_dir := $(PRODUCT_KERNEL_OUTPUT)/extmods/$(LOCAL_MODULE)
 ext_mod_file := $(ext_mod_dir)/.sentinel
 
 ifneq ($(firstword $(LOCAL_KCONFIG_OVERRIDE_FILES)),)
@@ -33,7 +35,7 @@ ifneq ($(firstword $(LOCAL_KCONFIG_OVERRIDE_FILES)),)
 
 local_config_files := $(addprefix $(LOCAL_MODULE_PATH)/,$(LOCAL_KCONFIG_OVERRIDE_FILES))
 
-ext_cfg_file :=	$(PRODUCT_KERNEL_OUTPUT)/extmods/$(LOCAL_MODULE_PATH)/.config
+ext_cfg_file :=	$(ext_mod_dir)/.config
 
 $(ext_cfg_file): $(local_config_files)
 	$(hide) mkdir -p $(@D)
@@ -47,6 +49,12 @@ else
 $(ext_mod_file): PRIVATE_CONFIG_PATH:=
 endif
 
+ifeq ($(LOCAL_C_INCLUDES),)
+$(ext_mod_file): PRIVATE_KERNEL_MODULE_INCLUDES :=
+else
+$(ext_mod_file): PRIVATE_KERNEL_MODULE_INCLUDES := KCPPFLAGS="$(addprefix -I,$(abspath $(LOCAL_C_INCLUDES)))"
+endif
+
 # Define build of this module here, separately,
 # to ensure it gets the appropriate config file.
 # FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
@@ -56,7 +64,7 @@ $(ext_mod_file): private_src_dir:=$(LOCAL_MODULE_PATH)
 $(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE
 	$(hide) mkdir -p $(@D)
 	$(hide) $(ACP) -rtf $(private_src_dir)/* $(@D)
-	$(mk_kernel) M=$(@D)   modules
+	$(mk_kernel) M=$(@D) $(PRIVATE_KERNEL_MODULE_INCLUDES) modules
 	touch $@
 
 # Add module to list of modules to install. This must
