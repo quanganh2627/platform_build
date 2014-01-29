@@ -180,7 +180,7 @@ define install-compat-module
 endef
 
 # Filter the list of external modules, to remove those that are not in PRODUCT_PACKAGES
-EXTERNAL_KERNEL_MODULES_TO_INSTALL := $(filter $(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(product_MODULES))
+EXTERNAL_KERNEL_MODULES_TO_INSTALL := $(filter $(EXTERNAL_KERNEL_MODULES_TO_INSTALL),$(product_MODULES) $(foreach t,$(tags_to_install),$(ALL_MODULE_NAME_TAGS.$(t))))
 
 # $1: module install directory; common to all modules
 define make-modules
