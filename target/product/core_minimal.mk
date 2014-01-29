@@ -49,13 +49,16 @@ PRODUCT_PACKAGES += \
     libdownmix \
     libdrmframework \
     libdrmframework_jni \
-    libfilterfw \
     libsqlite_jni \
     libwilhelm \
     make_ext4fs \
     screencap \
     sensorservice \
     uiautomator
+
+ifneq ($(INTEL_HOUDINI),true)
+PRODUCT_PACKAGES += libfilterfw
+endif
 
 PRODUCT_BOOT_JARS := core:conscrypt:okhttp:core-junit:bouncycastle:ext:framework:framework2:android.policy:services:apache-xml:webviewchromium
 
