@@ -26,37 +26,51 @@ LOCAL_MODULE := $(strip $(LOCAL_MODULE))
 ifeq ($($(LOCAL_MODULE)_EXCLUSION_GUARD),)
 $(LOCAL_MODULE)_EXCLUSION_GUARD := true
 
+# Contains flags sent to the C pre-preprocessor when building the module.
+# Used to add definitions and header file paths.
+PRIVATE_KCPPFLAGS :=
+PRIVATE_CONFIG_FLAGS :=
+
 ext_mod_dir := $(PRODUCT_KERNEL_OUTPUT)/extmods/$(LOCAL_MODULE)
 ext_mod_file := $(ext_mod_dir)/.sentinel
 
 ifneq ($(firstword $(LOCAL_KCONFIG_OVERRIDE_FILES)),)
-# As the module has some extra CONFIG parameters, a new
-# .config file must be created and used during build.
+# As the module has some extra CONFIG parameters, these must
+# be made available to the module's Makefile and C code
 
 local_config_files := $(addprefix $(LOCAL_MODULE_PATH)/,$(LOCAL_KCONFIG_OVERRIDE_FILES))
-
-ext_cfg_file :=	$(ext_mod_dir)/.config
-
-$(ext_cfg_file): $(local_config_files)
-	$(hide) mkdir -p $(@D)
-	$(hide) cat $^ > $@
-
-$(ext_mod_file): $(ext_cfg_file)
-$(ext_mod_file): PRIVATE_CONFIG_PATH:=KCONFIG_CONFIG=$(ext_cfg_file)
-
-else
-# Use the unmodified kernel config file
-$(ext_mod_file): PRIVATE_CONFIG_PATH:=
+local_config_files_full_path := $(realpath $(local_config_files))
+ifneq ($(words $(local_config_files)),$(words $(local_config_files_full_path)))
+$(info Error building external module $(LOCAL_MODULE): some of the config files specified do not exist)
+$(info Specified files: $(local_config_files))
+$(info Found files: $(local_config_files_full_path))
+$(error exiting...)
 endif
 
-ifeq ($(LOCAL_C_INCLUDES),)
-$(ext_mod_file): PRIVATE_KERNEL_MODULE_INCLUDES :=
+# Extract the extra CONFIG parameters from their file(s) to a make variable
+PRIVATE_CONFIG_FLAGS := $(shell cat $(local_config_files_full_path))
+
+# Create a target-specific version of PRIVATE_CONFIG_FLAGS,
+# as extmods included after this one will overwrite the global version.
+$(ext_mod_file): PRIVATE_CONFIG_FLAGS := $(PRIVATE_CONFIG_FLAGS)
+
+# Make the extra CONFIG parameters available to the C source code
+PRIVATE_KCPPFLAGS += $(addprefix -D,$(PRIVATE_CONFIG_FLAGS))
+
 else
-$(ext_mod_file): PRIVATE_KERNEL_MODULE_INCLUDES := KCPPFLAGS="$(addprefix -I,$(abspath $(LOCAL_C_INCLUDES)))"
+$(ext_mod_file): PRIVATE_CONFIG_PATH :=
 endif
 
-# Define build of this module here, separately,
-# to ensure it gets the appropriate config file.
+ifneq ($(LOCAL_C_INCLUDES),)
+PRIVATE_KCPPFLAGS += $(addprefix -I,$(abspath $(LOCAL_C_INCLUDES)))
+endif
+ifeq ($(PRIVATE_KCPPFLAGS),)
+$(ext_mod_file): PRIVATE_KERNEL_MODULE_CPPFLAGS :=
+else
+$(ext_mod_file): PRIVATE_KERNEL_MODULE_CPPFLAGS := KCPPFLAGS="$(PRIVATE_KCPPFLAGS)"
+endif
+
+# Define the module's build rule.
 # FIXME Workaround due to lack of simultaneous support of M= and O=; copy the
 # source into an intermediate directory and compile it there, preserving
 # timestamps so code is only rebuilt if it changes.
@@ -64,8 +78,8 @@ $(ext_mod_file): private_src_dir:=$(LOCAL_MODULE_PATH)
 $(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE
 	$(hide) mkdir -p $(@D)
 	$(hide) $(ACP) -rtf $(private_src_dir)/* $(@D)
-	$(mk_kernel) M=$(@D) $(PRIVATE_KERNEL_MODULE_INCLUDES) modules
-	touch $@
+	$(mk_kernel) M=$(@D) $(PRIVATE_KERNEL_MODULE_CPPFLAGS) $(PRIVATE_CONFIG_FLAGS) modules
+	$(hide) touch $@
 
 # Add module to list of modules to install. This must
 # be done in one place in a for loop, as the
