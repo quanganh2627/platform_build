@@ -484,7 +484,7 @@ def SbsignFile(input_name, output_name, key, password):
 
   # sbsign needs PEM formatted key and certificate.
   # Will need to convert DER formatted private to PEM format.
-  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key))
+  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key), password)
   key_f = tempfile.NamedTemporaryFile()
   key_f.write(key_data)
   key_f.flush()
@@ -516,7 +516,7 @@ def SignKmodule(input_name, output_name, key, password):
   """
 
   # sign-file wants a PEM formatted key and a DER certificate
-  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key))
+  key_data = GetPrivateKeyPEM(ReadPrivateKeyFile(key), password)
   key_f = tempfile.NamedTemporaryFile()
   key_f.write(key_data)
   key_f.flush()
@@ -682,7 +682,7 @@ def GetCertificateDER(data):
   return output
 
 
-def GetPrivateKeyPEM(data):
+def GetPrivateKeyPEM(data, password):
   """Given the data of a private key file in pkcs8,
   convert to PEM format if necessary using OpenSSL."""
   if b'PRIVATE KEY' not in data:
@@ -692,14 +692,27 @@ def GetPrivateKeyPEM(data):
 
     cert_der = tempfile.NamedTemporaryFile()
 
-    p = Run(["openssl", "pkcs8",
+    cmd = ["openssl", "pkcs8",
               "-in", cert_pem.name,
               "-inform", "DER",
               "-out", cert_der.name,
-              "-outform", "PEM",
-              "-nocrypt"],
+              "-outform", "PEM"]
+
+    if password is not None:
+      cmd.append("-passin")
+      cmd.append("stdin")
+    else:
+      cmd.append("-nocrypt")
+
+    p = Run(cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT)
-    p.communicate()
+    if password is not None:
+      password += "\n"
+      p.communicate(password)
+    else:
+      p.communicate()
     if not p.returncode == 0:
       raise ExternalError("error converting private key from DER to PEM")
 
