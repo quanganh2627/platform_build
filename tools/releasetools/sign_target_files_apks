@@ -636,10 +636,10 @@ def main(argv):
   binary_cert_replace_map = GetBinaryReplaceCerts(input_zip)
   sbsign_key_map = GetSbsignCerts(input_zip)
 
-  key_passwords = common.GetKeyPasswords(set(apk_key_map.values()))
-  key_passwords.update(common.GetKeyPasswords(set(sbsign_key_map.values())))
+  keys_we_need = set(apk_key_map.values()) | set(sbsign_key_map.values())
   if OPTIONS.kmodule_key:
-      key_passwords.update(common.GetKeyPasswords(set([OPTIONS.kmodule_key])))
+      keys_we_need.update(set([OPTIONS.kmodule_key]))
+  key_passwords = common.GetKeyPasswords(keys_we_need)
 
   SignFiles(input_zip, output_zip, apk_key_map, sbsign_key_map,
             binary_cert_replace_map, OPTIONS.kmodule_key, key_passwords)
