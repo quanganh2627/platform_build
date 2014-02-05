@@ -15,6 +15,7 @@ ifneq ($(strip $(TARGET_NO_KERNEL)),true)
 # it in out/dist/
 INSTALLED_KERNEL_ARCHIVE := $(OUT)/kernel-archive.zip
 
+
 # Tarball conatining source code of currently used Linux sources for GPL
 # license compliance
 INSTALLED_KERNEL_SOURCE_TARBALL := $(call intermediates-dir-for,PACKAGING,kernel)/kernelsrc.tar.gz
@@ -93,6 +94,7 @@ modbuild_output := $(CURDIR)/$(TARGET_OUT_INTERMEDIATES)/kernelmods
 # Be sure to have CONFIG_KERNEL_MINIGZIP enabled or your
 # incremental OTA binary diffs will be very large.
 mk_kernel_base := + $(hide) $(MAKE) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMANDS),V=1) KCFLAGS="$(TARGET_KERNEL_EXTRA_CFLAGS)"
+
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
   ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
     ifneq ($(USE_CCACHE),)

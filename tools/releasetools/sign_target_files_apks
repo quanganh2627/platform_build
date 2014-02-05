@@ -214,7 +214,7 @@ def CheckAllApksSigned(input_tf_zip, apk_key_map):
     print "\n  ".join(unknown_apks)
     print "\nUse '-e <apkname>=' to specify a key (which may be an"
     print "empty string to not sign this apk)."
-    sys.exit(1)
+    #sys.exit(1)
 
 
 def SignApk(data, keyname, pw):
@@ -344,6 +344,9 @@ def SignFiles(input_tf_zip, output_tf_zip, apk_key_map,
     out_info = copy.copy(info)
     if info.filename.endswith(".apk"):
       name = os.path.basename(info.filename)
+      if name not in apk_key_map:
+        print "    SKIPPING %s" % (name,)
+        continue
       key = apk_key_map[name]
       if key not in common.SPECIAL_CERT_STRINGS:
         print "    signing: %-*s (%s)" % (maxsize, name, key)
