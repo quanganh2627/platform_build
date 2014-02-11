@@ -98,9 +98,9 @@ mk_kernel_base := + $(hide) $(MAKE) ARCH=$(TARGET_KERNEL_ARCH) $(if $(SHOW_COMMA
 ifneq ($(TARGET_KERNEL_CROSS_COMPILE),false)
   ifneq ($(TARGET_KERNEL_TOOLS_PREFIX),)
     ifneq ($(USE_CCACHE),)
-      mk_kernel += CROSS_COMPILE="$(CURDIR)/$(CCACHE_BIN) $(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)"
+       mk_kernel_base += CROSS_COMPILE="$(CURDIR)/$(CCACHE_BIN) $(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)"
     else
-       mk_kernel += CROSS_COMPILE=$(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)
+       mk_kernel_base += CROSS_COMPILE=$(CURDIR)/$(TARGET_KERNEL_TOOLS_PREFIX)
     endif
   endif
 endif
