@@ -224,6 +224,7 @@ PREBUILT-PROJECT-linux: \
 		$(INSTALLED_MODULES_TARGET) \
 		$(INSTALLED_KERNELFW_TARGET) \
 		$(INSTALLED_KERNEL_SCRIPTS) \
+		| $(ACP) \
 
 	$(hide) rm -rf out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)
 	$(hide) mkdir -p out/prebuilt/linux/$(TARGET_PREBUILT_TAG)/kernel/$(TARGET_PRODUCT)-$(TARGET_BUILD_VARIANT)

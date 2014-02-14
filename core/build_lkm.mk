@@ -79,7 +79,7 @@ endif
 # source into an intermediate directory and compile it there, preserving
 # timestamps so code is only rebuilt if it changes.
 $(ext_mod_file): private_src_dir:=$(LOCAL_MODULE_PATH)
-$(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE
+$(ext_mod_file): $(INSTALLED_KERNEL_TARGET) FORCE | $(ACP)
 	@echo Building external kernel module in $(@D)
 	$(hide) mkdir -p $(@D)
 	$(hide) $(ACP) -rtf $(private_src_dir)/* $(@D)
