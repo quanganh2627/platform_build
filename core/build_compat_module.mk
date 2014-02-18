@@ -91,6 +91,7 @@ $(compat_cfg_file): $(PRODUCT_KERNEL_OUTPUT)/.config FORCE | $(ACP)
 	@echo Configuring kernel compat module $(PRIVATE_MODULE) with defconfig-$(PRIVATE_KERNEL_DEFCONFIG)
 	$(hide) mkdir -p $(@D)
 	$(hide) cp -ru $(private_src_dir)/. $(@D)/
+	$(hide) find $(@D) -name Android.mk | xargs rm -f
 	$(mk_kernel_base) -C $(@D) KLIB_BUILD=$(PRODUCT_KERNEL_OUTPUT) KCONFIG_CONFIG=$(@F).tmp defconfig-$(PRIVATE_KERNEL_DEFCONFIG)
 	$(hide) cmp --quiet $@.tmp $@ || { $(ACP) -f $@.tmp $@ && echo ".config changed, updating."; }
 
